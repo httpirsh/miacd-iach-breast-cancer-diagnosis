@@ -1,0 +1,10 @@
+# Dataset (downloaded separately, see README) — kept out of git to avoid a large binary history
+data/
+
+# Python / Jupyter
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
