@@ -1,0 +1,50 @@
+{
+    "classes": [
+        {
+            "title": "benign",
+            "shape": "bitmap",
+            "color": "#FF001F",
+            "geometry_config": {},
+            "id": 37349,
+            "hotkey": ""
+        },
+        {
+            "title": "malignant",
+            "shape": "bitmap",
+            "color": "#0075FF",
+            "geometry_config": {},
+            "id": 37350,
+            "hotkey": ""
+        }
+    ],
+    "tags": [
+        {
+            "name": "benign",
+            "value_type": "none",
+            "color": "#8A3A0F",
+            "id": 8396,
+            "hotkey": "",
+            "applicable_type": "all",
+            "classes": []
+        },
+        {
+            "name": "malignant",
+            "value_type": "none",
+            "color": "#0F8A86",
+            "id": 8397,
+            "hotkey": "",
+            "applicable_type": "all",
+            "classes": []
+        },
+        {
+            "name": "normal",
+            "value_type": "none",
+            "color": "#218A0F",
+            "id": 8398,
+            "hotkey": "",
+            "applicable_type": "all",
+            "classes": []
+        }
+    ],
+    "projectType": "images"
+}

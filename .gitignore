@@ -1,0 +1,31 @@
+# Ficheiros temporários do Office
+~$*
+
+# Ambientes virtuais
+venv/
+env/
+
+# Python
+__pycache__/
+*.pyc
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Modelos treinados (não subir para o git)
+*.keras
+*.h5
+*.pkl
+
+# DATASET (imagens pesadas - não subir)
+data/
+ds/
+
+# Código antigo
+legacy_code/
+
+# Ficheiros de sistema (Windows/Mac)
+.DS_Store
+Thumbs.db
+desktop.ini
+~$*
