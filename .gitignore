@@ -30,3 +30,5 @@ legacy_code/
 Thumbs.db
 desktop.ini
 ~$*
+# Chaves de API (ex.: LLM do agente)
+.env

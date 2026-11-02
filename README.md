@@ -17,8 +17,8 @@ Projeto em fase inicial — a abordagem e o conteúdo deste README vão evoluir.
 
 ## Próximos passos
 
-- Explicabilidade (ex.: Grad-CAM, SHAP).
-- Componente Human-in-the-Loop (validação humana das amostras selecionadas).
+- Explicabilidade com Grad-CAM.
+- Agente para o paciente: protótipo num notebook que explica a previsão e responde a perguntas do domínio com RAG, usando uma API de LLM.
 
 ## Estrutura do repositório
 
@@ -33,7 +33,6 @@ Projeto em fase inicial — a abordagem e o conteúdo deste README vão evoluir.
 │   ├── model.py            # CNN
 │   ├── active_learning.py  # Ciclo de Active Learning com Human-in-the-Loop
 │   └── evaluation.py       # Métricas (recall, F1, falsos negativos) e gráficos
-├── web_app/              # Aplicação web
 ├── results/              # Métricas guardadas pelos notebooks (criada ao correr)
 └── data/                 # Dataset (não versionado, ver abaixo)
 ```
