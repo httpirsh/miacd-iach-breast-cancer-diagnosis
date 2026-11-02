@@ -24,11 +24,19 @@ Projeto em fase inicial — a abordagem e o conteúdo deste README vão evoluir.
 
 ```
 .
-├── docs/          # Enunciado, proposta, paper, resultados, apresentação, referências
-├── notebooks/      # Code.ipynb (Active Learning) e Code_PassiveLearning.ipynb (baseline)
-├── src/            # Código-fonte
-├── web_app/        # Aplicação web
-└── data/           # Dataset (não versionado, ver abaixo)
+├── docs/                 # Enunciado, proposta, paper, resultados, apresentação, referências
+├── notebooks/
+│   ├── 01_passive_learning.ipynb   # Baseline: CNN treinada com todo o conjunto de treino
+│   ├── 02_active_learning.ipynb    # Active Learning (uncertainty, entropy, margin) vs baseline
+│   └── original/                   # Notebooks originais (2024), com os resultados obtidos na altura
+├── src/
+│   ├── data.py             # Carregamento, divisão treino/teste e balanceamento das imagens
+│   ├── model.py            # CNN
+│   ├── active_learning.py  # Ciclo de Active Learning com Human-in-the-Loop
+│   └── evaluation.py       # Métricas (recall, F1, falsos negativos) e gráficos
+├── web_app/              # Aplicação web
+├── results/              # Métricas guardadas pelos notebooks (criada ao correr)
+└── data/                 # Dataset (não versionado, ver abaixo)
 ```
 
 ## Dataset
@@ -37,4 +45,7 @@ Projeto em fase inicial — a abordagem e o conteúdo deste README vão evoluir.
 
 ## Como correr
 
-Notebooks desenvolvidos para o Google Colab. Localmente: colocar o dataset em `data/`, ajustar os caminhos no notebook e instalar `tensorflow`, `modAL-python`, `numpy`, `scikit-learn`, `matplotlib`.
+Correr primeiro `01_passive_learning.ipynb` (guarda a baseline em `results/`) e depois `02_active_learning.ipynb`. Os parâmetros (tamanho das imagens, nº de imagens por classe, batch sizes, nº de iterações, humano real ou simulado) estão na primeira célula de cada notebook.
+
+- **Google Colab:** copiar o repositório (com o dataset em `data/`) para o Google Drive, em `My Drive/miacd-iach-breast-cancer-diagnosis`. O notebook monta o Drive e instala as dependências em falta.
+- **Localmente:** uma versão de Python suportada pelo TensorFlow (ex.: 3.11; o 3.14 ainda não é suportado) e `pip install -r requirements.txt`. Abrir os notebooks a partir da pasta `notebooks/`.
