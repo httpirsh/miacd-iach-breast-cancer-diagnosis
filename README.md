@@ -27,8 +27,7 @@ Projeto em fase inicial — a abordagem e o conteúdo deste README vão evoluir.
 ├── docs/                 # Enunciado, proposta, paper, resultados, apresentação, referências
 ├── notebooks/
 │   ├── 01_passive_learning.ipynb   # Baseline: CNN treinada com todo o conjunto de treino
-│   ├── 02_active_learning.ipynb    # Active Learning (uncertainty, entropy, margin) vs baseline
-│   └── original/                   # Notebooks originais (2024), com os resultados obtidos na altura
+│   └── 02_active_learning.ipynb    # Active Learning (uncertainty, entropy, margin) vs baseline
 ├── src/
 │   ├── data.py             # Carregamento, divisão treino/teste e balanceamento das imagens
 │   ├── model.py            # CNN
