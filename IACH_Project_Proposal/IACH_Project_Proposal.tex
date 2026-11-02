@@ -1,0 +1,98 @@
+\documentclass[10pt]{article}
+\usepackage[portuguese]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, linkcolor=blue, filecolor=magenta, urlcolor=cyan,}
+\urlstyle{same}
+
+\title{Proposta de Projeto Diagnóstico de Cancro da Mama com CNNs e Active Learning }
+
+\author{Eduardo Cardoso Mafalda Nunes Matilde Reis\\
+Faculdade de Ciências e Tecnologia da Universidade de Coimbra\\
+Mestrado em Engenharia e Ciência de Dados\\
+uc2021226956@student.uc.pt uc2020236933@student.uc.pt uc2021237887@student.uc.pt}
+\date{}
+
+
+\begin{document}
+\maketitle
+
+
+\section*{1 Problema e Motivação}
+O cancro da mama é o tipo de cancro mais comum entre as mulheres, excluindo o cancro da pele, sendo a principal causa de morte oncológica no sexo feminino. Em Portugal, são detetados anualmente cerca de 9.000 novos casos de cancro da mama, e mais de 2.000 mulheres perdem a vida devido a esta doença. Esta patologia tem um enorme impacto na sociedade, não só pela sua elevada frequência, mas também por afetar um órgão profundamente simbólico na maternidade e feminilidade. Embora seja mais raro, cerca de 1\% dos casos de cancro da mama em Portugal afeta os homens, e a maioria das informações sobre esta doença aplica-se, igualmente, a esses casos [1].
+
+O principal problema associado ao cancro da mama reside na sua elevada prevalência e nas consequências para a vida dos pacientes, tanto físicas como emocionais. Esta doença afeta não só a saúde, mas também a identidade pessoal e social, especialmente no caso das mulheres, ao atacar um órgão tão simbólico e característico. O impacto psicológico de um diagnóstico do cancro da mama é profundo e desperta diversos medos relacionados com a perda de controlo sobre o próprio corpo e a morte.
+
+O diagnóstico é um fator determinante na taxa de sobrevivência dos pacientes, pois quanto mais cedo for detetado maior é a probabilidade de ser realizado um tratamento eficaz. Caso o diagnóstico seja positivo, o médico pode solicitar testes laboratoriais específicos ao tecido removido, cujos resultados irão ajudar o médico a determinar a natureza do cancro.
+
+Este é um tema bastante importante, uma vez que continua a ser uma das principais causas de morte em mulheres e que, em muitos casos, o diagnóstico só é feito em estágios avançados da doença, comprometendo as hipóteses de recuperação.
+
+\section*{2 Background}
+A deteção do cancro da mama é um tema extremamente explorado e existem vários trabalhos publicados que abordam e aplicam diferentes técnicas para realizar essa identificação.
+
+Em [2], a classificação de cancro da mama foi possível através de redes neuronais, utilizando um modelo de CNN em combinação com um modelo SVM, alcançando uma precisão de 95.6\%. Esta combinação é eficaz, dado que o modelo CNN é capaz de fazer a extração das features mais relevantes nas ecografias mamárias e o SVM classifica essas features em cancro maligno ou benigno. No entanto, este caso utiliza apenas um único tipo de conjunto de dados, o que pode induzir a limitações afetando a generalização do modelo.
+
+Neste contexto, o estudo realizado em [3] utilizou como modelo o CycleGAN para converter imagens de mamografia em imagens semelhantes às da ressonância magnética. O conjunto de dados utilizado inclui imagens de cortes transversais mamários. O modelo é composto por 2 geradores, responsáveis pela tradução das imagens. Os resultados mostram um valor de SSIM de 0.696667, indicando uma alta similaridade em relação à referência, e um valor de PSNR de 31.805 dB, que se enquadra dentro do intervalo típico.
+
+De acordo com o trabalho realizado em [7], é possível verificar a implementação de um modelo de CNN. O resultado obtido revela-se promissor pelo seu desempenho notório ao atingir 99.39\% de precisão na identificação de cancro nas ecografias mamárias analisadas. No entanto, como referido acima, este resultado pode apresentar limitações na sua aplicação genérica.
+
+Em [4] foi realizado um estudo acerca da perceção sobre os fatores de risco associados a esta patologia. A análise baseia-se na aplicação de um questionário a 96 mulheres com idade compreendida entre os 18 e 76 anos, efetuando-se o tratamento estatístico dos dados obtidos através do programa SPSS. As análises descritivas e de regressão bi e multivariada devolveram resultados relevantes para as entidades responsáveis acerca dos fatores de risco e principais lacunas no reconhecimento do cancro da mama. O principal fator de risco associado a esta patologia é a idade; porém, o inquérito também considera para avaliação outros parâmetros, entre eles: o histórico pessoal/familiar, o consumo de álcool, tabagismo, terapêuticas hormonais de substituição, etc. Como resultado esperado, a prática de autoexame impera na sinalização de alerta para as utentes. Este e outros resultados obtidos podem\\
+ser levados em consideração em pesquisas e campanhas de prevenção futuras.
+
+\section*{3 Objetivo}
+Este trabalho tem como objetivo identificar casos de cancro da mama de forma eficaz a partir de ecografias mamárias, utilizando uma abordagem baseada em Active Learning com a integração de Human in the Loop (HitL). Consideramos um trabalho bem sucedido aquele que resulta na diminuição do número de casos de falsos negativos, ou seja, garantir que o modelo de Inteligência Artificial (IA) que vamos criar consiga identificar corretamente os casos de cancro, minimizando os erros de não deteção.
+
+Desta forma, ao aplicarmos Active Learning, inserimos o ser humano no sistema, para que este consiga monitorizar o modelo com base no conhecimento do mundo real, ajustando o comportamento da IA. A validação humana é importante, pois permite a revisão e validação das decisões críticas feitas pelos modelos de IA, garantindo uma maior precisão e confiabilidade.
+
+Além disso, a intervenção humana garante que haja uma supervisão ética e que os resultados obtidos pela IA estejam alinhados com os valores humanos.
+
+Esta abordagem reforça a confiança na IA ao incorporar o conhecimento e julgamento humano no processo de tomada de decisão. Adicionalmente, podemos reduzir o risco de a IA agir de forma independente, em situações que possam entrar em conflito com as expectativas humanas [9].
+
+Esperamos, assim, maximizar a eficiência do modelo tornando o diagnóstico mais preciso através desta abordagem. Acreditamos que esta metodologia também pode reduzir a mortalidade, ao melhorar a deteção precoce e a tomada de decisão médica, baseadas tanto na análise da IA quanto na decisão humana.
+
+\section*{4 Abordagem}
+Inicialmente, pensámos em implementar um modelo baseado em redes neuronais, tendo como referência o código disponível em [5].
+
+Após analisarmos o estudo apresentado em [2], optamos mesmo por essa abordagem, visto que apresentou uma precisão elevada. Especificamente, pretendemos seguir a estrutura da proposta do projeto de deteção de cancro da mama com Redes Neuronais Convolucionais (CNNs), disponível em [10]. Este estudo, implementou o modelo de CNNs para classificar imagens de ecografias mamárias e apresentou resultados promissores em termos de precisão, servindo como base sólida para a nossa implementação do modelo.
+
+O modelo de CNNs que iremos implementar incluirá várias camadas convolucionais que são adequadas para a análise de imagens médicas. Vamos utilizar a função de ativação "relu", a qual introduz a não linearidade no modelo, permitindo que o mesmo aprenda padrões mais complexos nas características das imagens. O padding "same" permite que as dimensões das imagens permaneçam inalteradas independentemente da forma como o processo de convolução é realizado. No final da rede, aplicando a função de ativação "softmax" é possível realizar a classificação binária na deteção do cancro da mama. Além disso, técnicas como a normalização das imagens mamárias são cruciais para a melhoria da capacidade do modelo em lidar com a variabilidade dos dados.
+
+Com base na aplicação da técnica de Active Learning realizada em [6], pretendemos incorporar dados com mais importância no treino do modelo, com o objetivo de aumentar a sua eficácia. Estamos confiantes de que esta abordagem será uma mais valia para o nosso trabalho, de modo a permitir-nos alcançar resultados mais consistentes ao longo do tempo.
+
+Utilizaremos os códigos presentes em [7, 10] como referência para o nosso trabalho, pois encontra-se alinhado com um dos principais objetivos do nosso projeto: a aplicação direta em segmentos de imagens mamárias. Estes códigos baseiam-se na aplicação de CNNs, especificamente adaptadas para a análise de imagens mamárias. No entanto, devido ao facto de muitos modelos de Machine Learning enfrentarem limitações por terem uma capacidade limitada de generalização, com a adição da implementação de Active Learning pretendemos contornar essa limitação, permitindo ao modelo, com a ajuda do ser humano, selecionar os dados mais informativos para o treino.
+
+Com isto, pretendemos que o modelo evolua de forma eficiente com a entrada de novos dados clínicos, bem como diferentes cenários de diagnóstico. A integração do HitL permitirá supervisionar e ajustar o comportamento do modelo com base no conhecimento do mundo real, assegurando uma maior precisão e confiabilidade nas previsões.
+
+\section*{5 Materiais}
+O dataset que iremos utilizar é composto por 780 imagens de ecografias, disponíveis em [8]. Estas imagens foram obtidas através de ultrassons na zona peitoral realizados em mulheres entre os 25 e os 75 anos. Existem três classes: cancro benigno (437 imagens), cancro maligno (210 imagens) e sem cancro/normal (133 imagens).
+
+Para a realização do nosso trabalho vamos recorrer às ferramentas associadas ao Python. Esta linguagem disponibiliza uma série de bibliotecas, entre elas sklearn e TensorFlow, as quais nos permitem a implementação das técnicas e algoritmos desejados, assim também o uso de métricas eficazes para a avaliação dos resultados.
+
+Uma vez que vamos trabalhar com imagens, que requerem a utilização de mais espaço de armazenamento, vamos desenvolver o nosso projeto através do Google Colab. Esta plataforma permite-nos a utilização de recursos como GPUs, de forma a assegurarmos a rapidez na execução do projeto.
+
+\section*{6 Avaliação}
+Para avaliar os resultados do nosso projeto iremos utilizar várias métricas. Uma dela é a accuracy, dado que esta métrica\\[0pt]
+é frequentemente aplicada no contexto de redes neuronais para verificar a percentagem de amostras bem classificadas pelo modelo. Uma vez que os trabalhos [7, 10], que vamos utilizar como referência, também adotam esta métrica, será possível a comparação entre a nossa implementação e estas já existentes. Deste modo, conseguiremos verificar se o nosso projeto alcançou resultados tão bons ou melhores quando comparados com os obtidos nas referidas implementações.
+
+Além disso, vamos utilizar outras métricas de desempenho importantes para a detecção de cancro, como o recall, que nos permite avaliar a capacidade do modelo em detetar corretamente os casos positivos, minimizando os falsos negativos. O F1-score, que combina precisão e recall numa métrica equilibrada, poderá ser particularmente útil no caso de classes desbalanceadas, como é o caso do nosso projeto.\\
+Para complementar, utilizaremos uma matriz de confusão para verificar principalmente o número de falsos negativos, já que um dos nossos focos é garantir que o modelo classifica corretamente os casos em que existe cancro da mama. Consideramos essencial que o número de casos em que o modelo afirma, erroneamente, a não deteção de cancro seja diminuto. Criaremos gráficos para visualização das diferentes métricas, como a precisão e o recall, a fim de compararmos o nosso projeto com outros similares.
+
+\section*{7 Conclusão}
+Com esta proposta de projeto pretendemos não só o diagnóstico eficaz de casos de cancro da mama como também o alcance de melhores resultados em relação a outros trabalhos realizados no mesmo âmbito, através da aplicação de Active Learning. Desta forma, introduzimos o ser humano no sistema de Inteligência Artificial, beneficiando-nos do seu conhecimento e experiência para a melhoria dos resultados obtidos, além de assegurar a transparência e confiança no processo.
+
+\section*{Referências}
+[1] Liga Portuguesa Contra o Cancro: Cancro da Mama. \href{https://www.ligacontracancro.pt/cancro-da-mama/}{https://www.ligacontracancro.pt/cancro-da-mama/}\\[0pt]
+[2] ScienceDirect: Breast cancer classification based on convolutional neural network and image fusion approaches using ultrasound images. 2023. \href{https://www.sciencedirect.com/science/article/pii/S2405844023096147#bib20}{https://www.sciencedirect.com/science/article/pii/S2405844023096147\#bib20}\\[0pt]
+[3] Aplicação técnicas aprendizagem automática no cancro da mama. ISEP, 2022.\\
+\href{https://recipp.ipp.pt/bi-tstream/10400.22/24947/1/Tese_4570.pdf}{https://recipp.ipp.pt/bi-tstream/10400.22/24947/1/Tese\_4570.pdf}\\[0pt]
+[4] Prevenção do cancro da mama: conhecimento, atitude e práxis. Estudo Geral.\\
+\href{https://estudogeral.uc.pt/handle/10316/30935}{https://estudogeral.uc.pt/handle/10316/30935} [5] Breast Cancer Classification with Neural Networks. \href{https://www.kaggle.com/code/srpatil/breast-cancer-classification-with-neural-network}{https://www.kaggle.com/code/srpatil/breast-cancer-classification-with-neural-network}\\[0pt]
+[6] Interacive labeling with Jupyter. \href{https://modal-python.readthedocs.io/en/latest/content/examples/interactive_labeling.html}{https://modal-python.readthedocs.io/en/latest/content/examples/interactive\_labeling.html}\\[0pt]
+[7] CBIS-DDSM: Breast Cancer Image Datatset. \href{https://www.kaggle.com/code/hajimins/still-final-for-now}{https://www.kaggle.com/code/hajimins/still-final-for-now}\\[0pt]
+[8] Breast Ultrasound Images - Dataset Ninja. \href{https://datasetninja.com/breast-ultasound-images}{https://datasetninja.com/breast-ultasound-images}\\[0pt]
+[9] Slides da disciplina: slides\_HcAI\_HumanAICoop\_HitLvsMitL.pdf\\[0pt]
+[10] Breast Cancer Detection using CNN. \href{https://www.kaggle.com/code/baselanaya/breast-cancer-detection-using-cnn}{https://www.kaggle.com/code/baselanaya/breast-cancer-detection-using-cnn}
+
+
+\end{document}
