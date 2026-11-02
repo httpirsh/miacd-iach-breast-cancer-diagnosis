@@ -1,10 +1,31 @@
-# Dataset (downloaded separately, see README) — kept out of git to avoid a large binary history
-data/
+# Ficheiros temporários do Office
+~$*
 
-# Python / Jupyter
+# Ambientes virtuais
+venv/
+env/
+
+# Python
 __pycache__/
 *.pyc
+
+# Jupyter
 .ipynb_checkpoints/
 
-# OS
+# Modelos treinados (não subir para o git)
+*.keras
+*.h5
+*.pkl
+
+# DATASET (imagens pesadas - não subir)
+data/
+ds/
+
+# Código antigo
+legacy_code/
+
+# Ficheiros de sistema (Windows/Mac)
 .DS_Store
+Thumbs.db
+desktop.ini
+~$*

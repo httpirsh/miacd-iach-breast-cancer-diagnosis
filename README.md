@@ -26,6 +26,8 @@ Projeto em fase inicial — a abordagem e o conteúdo deste README vão evoluir.
 .
 ├── docs/          # Enunciado, proposta, paper, resultados, apresentação, referências
 ├── notebooks/      # Code.ipynb (Active Learning) e Code_PassiveLearning.ipynb (baseline)
+├── src/            # Código-fonte
+├── web_app/        # Aplicação web
 └── data/           # Dataset (não versionado, ver abaixo)
 ```
 
