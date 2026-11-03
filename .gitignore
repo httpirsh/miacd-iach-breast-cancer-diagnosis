@@ -22,13 +22,10 @@ __pycache__/
 data/
 ds/
 
-# Código antigo
-legacy_code/
-
 # Ficheiros de sistema (Windows/Mac)
 .DS_Store
 Thumbs.db
 desktop.ini
-~$*
+
 # Chaves de API (ex.: LLM do agente)
 .env

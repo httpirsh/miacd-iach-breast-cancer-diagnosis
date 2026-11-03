@@ -67,3 +67,11 @@ def load_dataset(path, size=224, test_size=0.2, max_per_class=None, seed=1):
         images, labels, test_size=test_size, stratify=labels, random_state=seed)
     x_train, y_train = augment(x_train, y_train)
     return x_train, x_test, y_train, y_test
+
+
+def summarize(x_train, x_test, y_train, y_test):
+    """Mostra o tamanho, a memória ocupada e a distribuição das classes de cada conjunto."""
+    print(f"Treino: {x_train.shape}, teste: {x_test.shape}")
+    print(f"Memória das imagens: {(x_train.nbytes + x_test.nbytes) / 1e6:.0f} MB")
+    for split, y in [("Treino", y_train), ("Teste", y_test)]:
+        print(f"{split}:", {name: int(np.sum(y == i)) for i, name in enumerate(CLASSES)})
