@@ -1,0 +1,644 @@
+%%%% main.tex -- HCAI 2026/27 project report (IJCAI--ECAI 26 format)
+%%%% Draft. Every \todo{} marks content that depends on experiments not yet run
+%%%% or on decisions still open; nothing inside a \todo{} is a real result.
+
+\documentclass{article}
+\pdfpagewidth=8.5in
+\pdfpageheight=11in
+
+\usepackage{ijcai26}
+
+\usepackage{times}
+\usepackage{soul}
+\usepackage{url}
+\usepackage[hidelinks]{hyperref}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[small]{caption}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{xcolor}
+\usepackage[switch]{lineno}
+
+% Line numbers help reviewers; comment out for the final version.
+\linenumbers
+
+\urlstyle{same}
+
+% Draft helpers: placeholders are printed in red so none is mistaken for a result.
+\newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
+\newcommand{\tbd}{\textcolor{red}{--}}   % empty table cell, value pending
+
+\pdfinfo{
+/TemplateVersion (IJCAI.2026.0)
+}
+
+\title{Human-in-the-Loop Active Learning for Breast Cancer Diagnosis\\from Ultrasound Images}
+
+\author{
+    Cristiana Mortágua \and Íris Sousa
+    \affiliations
+    Faculty of Sciences and Technology, University of Coimbra\\
+    MSc in Artificial Intelligence and Data Engineering --- Human-Centered Artificial Intelligence
+    \emails
+    uc2023212004@student.uc.pt, uc2021221971@student.uc.pt
+}
+
+\begin{document}
+
+\maketitle
+
+% =====================================================================================
+\begin{abstract}
+Labelling medical images requires scarce expert time, and in breast cancer screening the
+cost of an error is asymmetric: a missed malignancy (false negative) can delay treatment,
+whereas a false alarm leads to further exams. We study whether a convolutional neural
+network (CNN) trained with pool-based Active Learning (AL), in which a human annotator is
+asked to label only the images the model considers most informative, can match a model
+trained on the fully labelled set while keeping false negatives low. Using the public
+Breast Ultrasound Images dataset (780 images; normal, benign, malignant), we first correct
+two methodological problems of a previous implementation of this pipeline --- data leakage
+caused by augmenting before splitting, and a Human-in-the-Loop step whose labels were
+ignored by the learner --- and then compare three uncertainty-based query strategies
+(least confidence, margin and entropy) under four training batch sizes against a passive
+learning baseline. Evaluation focuses on the recall of the malignant class and on the
+number of false negatives. \todo{one or two sentences with the main quantitative findings
+once the experiments are run}. The code is available at
+\url{https://github.com/httpirsh/miacd-iach-breast-cancer-diagnosis}.
+\end{abstract}
+
+% =====================================================================================
+\section{Introduction}
+
+Breast cancer is the most frequently diagnosed cancer in women worldwide and the leading
+cause of cancer death among them~\cite{bray2024globocan}. In Portugal, about 9{,}000 new
+cases are detected and more than 2{,}000 women die from the disease every year; around 1\%
+of the cases occur in men~\cite{lpcc}. Survival depends strongly on how early the disease
+is found, and ultrasound is a widely available, radiation-free imaging modality used both
+to characterise lesions found in mammography and as a first-line exam in dense breasts and
+younger women. Reading ultrasound images, however, is operator-dependent and demands
+experience, which motivates computer-aided diagnosis tools.
+
+Deep learning, and CNNs in particular, have reported high accuracies on breast ultrasound
+classification~\cite{heliyon2023fusion,kaggle_anaya}. Two obstacles separate these
+results from clinical use. First, CNNs need many \emph{labelled} images, and in medicine
+each label costs the time of a specialist. Second, a model that classifies an image
+without involving or informing the clinician is hard to trust, audit or correct: in a
+high-stakes domain, the human must keep control of the decision~\cite{shneiderman2020hcai,holzinger2016interactive}.
+
+Active Learning addresses the first obstacle: instead of labelling every image, the model
+iteratively selects the unlabelled images whose labels it expects to be most informative
+and asks an oracle --- here, a human expert --- to label them~\cite{settles2009survey}.
+Because the expert is consulted inside the training loop, AL is also a natural instance of
+Human-in-the-Loop (HitL) machine learning~\cite{mosqueira2023hitl,budd2021survey},
+addressing part of the second obstacle. A previous student project on the same dataset
+combined a CNN with AL through the modAL library and reported that AL reached 68\% test
+accuracy against 45.92\% for passive learning~\cite{cardoso2024}. On inspection, that
+pipeline had two problems that make its numbers unreliable: images were augmented
+\emph{before} the train/test split, so rotated copies of test images were seen during
+training (data leakage~\cite{kaufman2012leakage}); and in two of the three query
+strategies the label typed by the human was not the one used to update the model, so the
+``human'' in the loop had no effect. Moreover, accuracy alone was reported, although the
+clinically relevant error is the false negative.
+
+In this paper we revisit that study with a corrected and documented pipeline. We
+(i)~split the data into stratified training, validation and test sets \emph{before} any
+augmentation and remove a duplicated image with conflicting labels; (ii)~implement a
+single AL loop in which the label given by the human --- real or simulated --- is the one
+the model learns from, while the model's own suggestion is displayed to the annotator;
+(iii)~compare least-confidence, margin and entropy sampling with four training batch
+sizes against a passive learning baseline that uses the same CNN; and (iv)~evaluate
+models by malignant-class recall and number of false negatives, alongside accuracy and
+macro-averaged recall and F1. \todo{add (v) Grad-CAM explanations and (vi) the patient-facing
+agent prototype once implemented, or move them to Future Work}.
+
+Our approach connects directly to the topics of the Human-Centered AI course: it treats
+the clinician as an active participant whose knowledge steers training (HitL rather than
+fully automated learning~\cite{hcai_slides_hitl}), it chooses the evaluation criterion
+according to human values (the asymmetric cost of missing a cancer), and it plans
+explanations so that the human can judge \emph{why} the model asks for a label.
+
+The remainder of this paper is structured as follows. Section~\ref{sec:related} reviews
+related work. Section~\ref{sec:materials} describes the dataset and tools, and
+Section~\ref{sec:methods} the pre-processing, model, AL loop and evaluation.
+Section~\ref{sec:experiments} details the experimental setup, Section~\ref{sec:results}
+presents the results and Section~\ref{sec:discussion} discusses them.
+Section~\ref{sec:conclusions} concludes and outlines future work.
+
+% =====================================================================================
+\section{Related Work}
+\label{sec:related}
+
+\paragraph{CNN-based breast ultrasound classification.}
+The Breast Ultrasound Images (BUSI) dataset~\cite{aldhabyani2020busi} is the most used
+public benchmark for this task. Reported results vary widely: a CNN feature extractor
+combined with an SVM reached 95.6\% accuracy on benign versus malignant
+classification~\cite{heliyon2023fusion}, and public notebooks report accuracies above
+99\%~\cite{kaggle_cbis}. Such figures should be read with care. BUSI is small, contains
+duplicated images and images with visible annotations from the ultrasound
+equipment~\cite{pawlowska2024curated}, and many pipelines augment before splitting. Under
+these conditions a CNN can exploit shortcuts unrelated to the lesion~\cite{geirhos2020shortcut,zech2018confounding}, and leaked augmented copies inflate test scores. We
+therefore do not aim to beat these numbers, but to measure AL against a passive baseline
+under a protocol free of leakage.
+
+\paragraph{Active Learning.}
+In pool-based AL~\cite{settles2009survey}, a model trained on a small labelled set scores
+a pool of unlabelled examples with a \emph{query strategy} and requests labels for the
+best-scored ones. Uncertainty sampling~\cite{lewis1994sequential} queries the example on
+which the model is least confident; margin sampling~\cite{scheffer2001margin} the one with
+the smallest gap between its two most likely classes; and entropy
+sampling~\cite{shannon1948} the one with the most spread-out predictive distribution.
+For deep models, Bayesian approximations~\cite{gal2017deep} and diversity-based
+strategies such as core-sets~\cite{sener2018coreset} have been proposed to deal with
+over-confident softmax outputs and with batches of redundant queries.
+Budd et al.~\cite{budd2021survey} survey AL and HitL for medical image analysis and
+highlight that most studies simulate the oracle with ground-truth labels, as we also do
+for the quantitative experiments. modAL~\cite{danka2018modal} provides these strategies in
+Python, wraps any scikit-learn-compatible estimator and includes an example of
+interactive labelling in Jupyter~\cite{modal_interactive}, on which our HitL interface is
+based.
+
+\paragraph{AL in medical diagnosis at the University of Coimbra.}
+Pinto et al.~\cite{pinto2022active} combined modAL with a neural network for symptom-based
+diagnosis of 41 diseases and obtained better performance than models in the literature
+with less data. Faria et al.~\cite{faria2022joint} studied the joint role of batch size
+and query strategy for heart attack prediction and found that small batches worked best
+and that least-confidence, margin, entropy and random sampling all reduced the amount of
+data needed by 57--60\%. Note that in~\cite{faria2022joint} ``batch size'' is the number
+of examples queried per AL iteration, whereas in this work and in~\cite{cardoso2024} it
+is the mini-batch size used by the optimiser when the CNN is (re)trained; one image is
+queried per iteration. Vieira et al.~\cite{vieira2021openworld} applied AL with a
+stacking ensemble to open-world object recognition for self-driving cars. Closest to our
+work, Cardoso et al.~\cite{cardoso2024} applied the same CNN and the same three query
+strategies to BUSI; we reuse their architecture to keep the comparison fair, and correct
+the issues described in the introduction.
+
+\paragraph{Human-centred and explainable AI.}
+Shneiderman~\cite{shneiderman2020hcai} argues that high automation and high human control
+are compatible and that reliable, safe and trustworthy systems keep humans in charge of
+consequential decisions. Holzinger~\cite{holzinger2016interactive} discusses when a human
+in the loop helps machine learning in health informatics, and Mosqueira-Rey et
+al.~\cite{mosqueira2023hitl} review HitL paradigms, among which AL is the one in which the
+machine drives the interaction. Showing the model's suggestion to the human can also
+cause automation bias~\cite{goddard2012automation}, a risk we discuss in
+Section~\ref{sec:discussion}. Grad-CAM~\cite{selvaraju2017gradcam} produces class-specific
+heat maps from the gradients of the last convolutional layer and is commonly used to
+check whether a CNN looks at the lesion or at artefacts.
+
+% =====================================================================================
+\section{Materials}
+\label{sec:materials}
+
+\subsection{Dataset}
+We use the Breast Ultrasound Images dataset~\cite{aldhabyani2020busi}, distributed by
+Dataset Ninja under a CC0~1.0 licence~\cite{datasetninja}. It contains 780 PNG images
+from 600 women aged 25 to 75, acquired in 2018, labelled by radiologists as
+\emph{normal} (133), \emph{benign} (437) or \emph{malignant} (210). Each image also comes
+with a pixel mask of the lesion (absent for normal images), which we do not use for
+training but which can serve as ground truth to evaluate explanations
+(Section~\ref{sec:conclusions}). Image sizes vary between 190 and 1048 pixels in width
+(median 564) and 310 and 719 pixels in height (median 474). The class of each image is
+given by its file name (e.g.\ \texttt{benign (12).png}).
+
+The dataset is imbalanced: there are more than three benign images for every normal one.
+Furthermore, comparing file contents with MD5 hashes revealed that \texttt{benign (433)}
+and \texttt{malignant (145)} are the same image with different labels. Since we cannot
+know which label is correct, both copies are excluded, leaving 778 images (133 normal,
+436 benign, 209 malignant).
+
+\subsection{Tools}
+The project is implemented in Python with TensorFlow/Keras for the CNN, scikit-learn for
+data splitting and metrics, modAL~\cite{danka2018modal} for the AL loop, and SciKeras to
+expose the Keras model through the scikit-learn interface that modAL expects; NumPy,
+Pillow, Matplotlib and seaborn are used for data handling and plots. Shared code lives in
+a \texttt{src/} package (data loading, model, AL loop, evaluation) and the experiments are
+run from three Jupyter notebooks (data exploration, passive learning, active learning)
+that work both locally and on Google Colab, which provides the GPU used for training.
+\todo{state the hardware (Colab GPU type) and library versions used for the final runs}.
+
+% =====================================================================================
+\section{Methods}
+\label{sec:methods}
+
+\subsection{Pre-processing and data splits}
+\label{sec:preprocessing}
+Images are converted to a single grey-level channel, since ultrasound is intrinsically
+monochromatic and three identical channels would only triple memory. They are resized to
+$224\times224$ pixels, the input size used in~\cite{cardoso2024} and by most ImageNet
+models (which keeps the door open to transfer learning), and pixel values are scaled to
+$[0,1]$ to help optimisation. At this size the 1{,}899 images held in memory after
+balancing take about 381\,MB as \texttt{float32}, well within the RAM of a free Colab
+session. Resizing to a square changes the aspect ratio of the (mostly landscape)
+images; we accept this distortion for simplicity.
+
+The 778 original images are then split, stratified by class, into training (65\%),
+validation (15\%) and test (20\%) sets. The split is done \textbf{before} any
+augmentation, so no validation or test image, nor a rotated or flipped copy of it, is ever
+used for training. The validation set is used to monitor training (and, in the AL loop,
+is passed to every refit); the test set is used only for the reported evaluation. Both
+keep the original images and the real class distribution, so that the reported metrics
+reflect the prevalence the model would face.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{lrrrr}
+\toprule
+Split & Normal & Benign & Malignant & Total \\
+\midrule
+Training (original)   & 86  & 283 & 136 & 505 \\
+Training (balanced)   & 516 & 566 & 544 & 1626 \\
+Validation            & 20  & 66  & 31  & 117 \\
+Test                  & 27  & 87  & 42  & 156 \\
+\bottomrule
+\end{tabular}
+\caption{Number of images per class in each split (seed 1). Only the training set is
+balanced; the augmentation factors are $\times6$ (normal), $\times2$ (benign) and
+$\times4$ (malignant).}
+\label{tab:splits}
+\end{table}
+
+\paragraph{Balancing.}
+Only the training set is balanced, by adding rotated and mirrored copies of its own
+images: five extra copies of each normal image (rotations of 90$^\circ$ and 180$^\circ$,
+a vertical flip, and both rotations combined with the flip), three of each malignant
+image (180$^\circ$ rotation, flip, and both) and one of each benign image (flip). The
+factors were chosen to bring the three classes to similar sizes (Table~\ref{tab:splits})
+so that the model is not pushed to predict the majority class, which would hurt exactly
+the minority classes we care about. The training set is then shuffled, because the
+augmentation function appends copies class by class. We discuss the limitations of this
+choice in Section~\ref{sec:discussion}.
+
+\subsection{CNN model}
+We keep the CNN of~\cite{cardoso2024}, which allows a direct comparison with that work and
+isolates the effect of our methodological corrections. It has four convolutional blocks
+with 32, 64, 128 and 32 filters of size $4\times4$, ReLU activation and no padding, each
+followed by batch normalisation~\cite{ioffe2015batchnorm} and $2\times2$ max pooling;
+dropout~\cite{srivastava2014dropout} with rate 0.3 is applied after the second and third
+blocks. The resulting $11\times11\times32$ feature map is flattened and fed to a dense
+layer of 32 sigmoid units and a 3-unit softmax output (Table~\ref{tab:cnn}). The model
+has 355{,}203 parameters and is trained from scratch with Adam~\cite{kingma2015adam}
+(learning rate $10^{-5}$) on the categorical cross-entropy loss, with one-hot labels. The
+low learning rate favours stable training of a network that is retrained many times on a
+growing set in the AL loop.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{llr}
+\toprule
+Layer & Output shape & Parameters \\
+\midrule
+Input                         & $224\times224\times1$ & 0 \\
+Conv $4\times4$, 32 + BN + Pool  & $110\times110\times32$ & 672 \\
+Conv $4\times4$, 64 + BN + Pool + Dropout & $53\times53\times64$ & 33{,}088 \\
+Conv $4\times4$, 128 + BN + Pool + Dropout & $25\times25\times128$ & 131{,}712 \\
+Conv $4\times4$, 32 + BN + Pool  & $11\times11\times32$ & 65{,}696 \\
+Flatten + Dense 32 (sigmoid)  & 32 & 123{,}936 \\
+Dense 3 (softmax)             & 3  & 99 \\
+\midrule
+Total                         &    & 355{,}203 \\
+\bottomrule
+\end{tabular}
+\caption{CNN architecture (\texttt{src/model.py}).}
+\label{tab:cnn}
+\end{table}
+
+\subsection{Passive learning baseline}
+The baseline trains a fresh CNN on the whole balanced training set (1{,}626 labelled
+images) for 15 epochs with the default batch size of 32, monitoring the validation set
+after each epoch. It represents the situation in which every training image has been
+labelled by an expert, and is the reference that AL aims to approach with fewer labels.
+
+\subsection{Active Learning with a human in the loop}
+\label{sec:al}
+
+\paragraph{Loop.} Algorithm~\ref{alg:al} summarises the procedure, implemented in
+\texttt{src/active\_learning.py}. A random subset of $n_0$ training images forms the
+initial labelled set $\mathcal{L}$; the remaining images form the unlabelled pool
+$\mathcal{U}$. The CNN, wrapped by SciKeras with \texttt{warm\_start} enabled so that each
+refit continues from the current weights, is first trained on $\mathcal{L}$. At each of
+the $Q$ iterations, the query strategy scores every image in $\mathcal{U}$ and selects the
+best one, the human provides its label, the image is moved from $\mathcal{U}$ to
+$\mathcal{L}$, and the CNN is refitted on the whole of $\mathcal{L}$ for $E$ epochs
+(modAL's \texttt{teach}). After every iteration we record loss and accuracy on
+$\mathcal{L}$ and on the test set, and at the end we compute the test metrics.
+
+\begin{algorithm}[t]
+\caption{Pool-based Active Learning with HitL}
+\label{alg:al}
+\begin{algorithmic}[1]
+\REQUIRE training set $X$, strategy $\phi$, $n_0$, $Q$, epochs $E$
+\STATE $\mathcal{L} \leftarrow$ $n_0$ random labelled images; $\mathcal{U} \leftarrow X \setminus \mathcal{L}$
+\STATE train CNN $f$ on $\mathcal{L}$ for $E$ epochs
+\FOR{$t = 1$ \TO $Q$}
+  \STATE $x^* \leftarrow \arg\max_{x \in \mathcal{U}} \phi(f(x))$
+  \STATE show $x^*$ and suggestion $\arg\max_c f_c(x^*)$ to the human
+  \STATE $y^* \leftarrow$ label given by the human
+  \STATE $\mathcal{L} \leftarrow \mathcal{L} \cup \{(x^*, y^*)\}$; $\mathcal{U} \leftarrow \mathcal{U} \setminus \{x^*\}$
+  \STATE continue training $f$ on $\mathcal{L}$ for $E$ epochs
+  \STATE record loss and accuracy on $\mathcal{L}$ and on the test set
+\ENDFOR
+\end{algorithmic}
+\end{algorithm}
+
+\paragraph{Query strategies.} Let $p(c\mid x)$ be the softmax output for class $c$ and
+$c_1, c_2$ the two most probable classes. We compare the three uncertainty-based
+strategies available in modAL, which select the image maximising:
+\begin{align}
+\phi_{\mathrm{LC}}(x)  &= 1 - p(c_1\mid x) && \text{(least confidence)}\\
+\phi_{\mathrm{M}}(x)   &= -\big(p(c_1\mid x) - p(c_2\mid x)\big) && \text{(margin)}\\
+\phi_{\mathrm{H}}(x)   &= -\textstyle\sum_{c} p(c\mid x)\log p(c\mid x) && \text{(entropy)}
+\end{align}
+For example, for $p = (0.40, 0.35, 0.25)$, $\phi_{\mathrm{LC}} = 0.60$ and the margin is
+$0.05$. With three classes the strategies often agree, but they can differ: least
+confidence only looks at the top class, margin focuses on the boundary between the two
+most likely classes (e.g.\ benign versus malignant), and entropy rewards images on which
+the model hesitates among all three. Studying which of these notions of uncertainty finds
+more useful images is the main question of the AL experiments.
+
+\paragraph{The human in the loop.} When the \texttt{HUMAN} option is enabled, the selected
+image is displayed in the notebook together with the model's suggested class, and the
+annotator types the correct class; the model is trained with the label the person typed,
+even if it is wrong. This is the behaviour a real deployment would have, and it fixes the
+implementation of~\cite{cardoso2024}, in which the typed label was ignored for least
+confidence and margin sampling. Running dozens of experiments with a person answering
+every query is not feasible, so for the quantitative comparison the oracle is simulated
+with the ground-truth label of the image, as is common in AL
+studies~\cite{budd2021survey}; this corresponds to an always-correct expert.
+\todo{if time allows, describe a small session with a real annotator (number of images,
+agreement with ground truth, time per label)}.
+
+\subsection{Evaluation metrics}
+We report, on the test set: accuracy; recall and F1 macro-averaged over the three
+classes; the recall (sensitivity) of the malignant class; and the number of false
+negatives, defined as malignant images predicted as benign or normal. Accuracy is kept for
+comparison with previous work but can be misleading with imbalanced classes. Malignant
+recall and false negatives are the primary criteria, because in diagnosis a false positive
+leads to additional exams, whereas a false negative can delay the treatment of a cancer.
+Confusion matrices show how errors are distributed among classes.
+\todo{add precision--recall curves and AUC-PR for the malignant class~\cite{saito2015precision}
+if implemented}.
+
+% =====================================================================================
+\section{Experiments}
+\label{sec:experiments}
+
+\subsection{Experimental setup}
+All experiments use the splits of Table~\ref{tab:splits} (seed 1), $224\times224$
+images and the CNN of Table~\ref{tab:cnn}. The AL grid crosses the three query strategies
+with four training batch sizes, $\{16, 32, 64, 128\}$, giving 12 runs; each run starts
+from a fresh CNN. Following~\cite{cardoso2024}, each run starts with $n_0 = 1000$
+randomly labelled images, the CNN is trained for $E = 10$ epochs at the start and after
+every new label, and $Q = 10$ images are queried, one per iteration. The batch size is
+varied because it changes how the optimiser exploits a small labelled set: small batches
+give more, noisier updates per epoch, large ones fewer and smoother updates, and the
+previous study found large batches to perform clearly worse~\cite{cardoso2024}. The
+passive baseline is trained once as described in Section~\ref{sec:methods}.
+Table~\ref{tab:params} lists all parameters; they are set in the first cells of the
+notebooks.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{ll}
+\toprule
+Parameter & Value \\
+\midrule
+Image size & $224\times224$, 1 channel \\
+Split (train/val/test) & 65/15/20\%, stratified, seed 1 \\
+Optimiser & Adam, learning rate $10^{-5}$ \\
+Passive: epochs / batch size & 15 / 32 \\
+AL: strategies & least confidence, margin, entropy \\
+AL: training batch sizes & 16, 32, 64, 128 \\
+AL: initial labelled set $n_0$ & 1000 (of 1626) \\
+AL: iterations $Q$ (images queried) & 10, one per iteration \\
+AL: epochs per (re)fit $E$ & 10 \\
+Oracle & simulated (ground truth) \\
+\bottomrule
+\end{tabular}
+\caption{Experimental parameters.}
+\label{tab:params}
+\end{table}
+
+\todo{decide whether to add the control experiments proposed in
+Section~\ref{sec:threats} (random sampling, compute-matched passive baseline, several
+seeds, smaller $n_0$); if added, describe them here}.
+
+% =====================================================================================
+\section{Results}
+\label{sec:results}
+
+\todo{this section is a skeleton: fill in after running notebooks 01 and 02 with the
+final configuration. Report numbers only; interpretation goes in
+Section~\ref{sec:discussion}.}
+
+\subsection{Passive learning baseline}
+Table~\ref{tab:results} (first row) shows the test metrics of the passive baseline and
+Figure~\ref{fig:cm} its confusion matrix. \todo{one or two sentences pointing out
+accuracy, malignant recall and the number of false negatives, and whether training and
+validation curves indicate under- or over-fitting after 15 epochs}.
+
+\subsection{Active Learning}
+Figure~\ref{fig:curves} shows the evolution of loss and accuracy on the labelled set and
+on the test set across the 10 AL iterations, for each strategy and batch size, with the
+accuracy of the passive baseline as reference. Table~\ref{tab:results} reports the test
+metrics at the end of the 10 iterations. \todo{summary statements: which strategy/batch
+size gave the fewest false negatives and the highest malignant recall; how many
+configurations reached the baseline accuracy and after how many iterations; whether the
+large batch sizes lagged behind}.
+
+\begin{table}[t]
+\centering
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{llrrrrr}
+\toprule
+Strategy & Batch & Acc. & Rec. & F1 & Rec.\,mal. & FN \\
+\midrule
+Passive & 32 & \tbd & \tbd & \tbd & \tbd & \tbd \\
+\midrule
+\multirow{4}{*}{Least conf.} & 16  & \tbd & \tbd & \tbd & \tbd & \tbd \\
+                             & 32  & \tbd & \tbd & \tbd & \tbd & \tbd \\
+                             & 64  & \tbd & \tbd & \tbd & \tbd & \tbd \\
+                             & 128 & \tbd & \tbd & \tbd & \tbd & \tbd \\
+\midrule
+\multirow{4}{*}{Margin}      & 16  & \tbd & \tbd & \tbd & \tbd & \tbd \\
+                             & 32  & \tbd & \tbd & \tbd & \tbd & \tbd \\
+                             & 64  & \tbd & \tbd & \tbd & \tbd & \tbd \\
+                             & 128 & \tbd & \tbd & \tbd & \tbd & \tbd \\
+\midrule
+\multirow{4}{*}{Entropy}     & 16  & \tbd & \tbd & \tbd & \tbd & \tbd \\
+                             & 32  & \tbd & \tbd & \tbd & \tbd & \tbd \\
+                             & 64  & \tbd & \tbd & \tbd & \tbd & \tbd \\
+                             & 128 & \tbd & \tbd & \tbd & \tbd & \tbd \\
+\bottomrule
+\end{tabular}
+\caption{Test-set results (156 images, 42 malignant). Rec.\ and F1 are macro-averaged;
+Rec.\,mal.\ is the recall of the malignant class; FN is the number of malignant images
+predicted as benign or normal (lower is better). AL rows are measured after 10 queries
+($1010$ labelled images).}
+\label{tab:results}
+\end{table}
+
+\begin{figure*}[t]
+\centering
+\fbox{\parbox[c][4cm][c]{0.95\textwidth}{\centering\todo{three panels (one per strategy)
+exported from notebook 02, \S4.1: accuracy and loss per iteration on the labelled set and
+on the test set, one colour per batch size, passive baseline as a dashed line}}}
+% \includegraphics[width=\textwidth]{figures/al_curves.pdf}
+\caption{Accuracy (solid) and loss (dashed) per Active Learning iteration on the labelled
+set (left) and test set (right) for each training batch size. The black dashed line is
+the test accuracy of passive learning.}
+\label{fig:curves}
+\end{figure*}
+
+\begin{figure}[t]
+\centering
+\fbox{\parbox[c][3.5cm][c]{0.9\columnwidth}{\centering\todo{confusion matrices: passive
+baseline and best AL configuration}}}
+% \includegraphics[width=\columnwidth]{figures/confusion.pdf}
+\caption{Confusion matrices on the test set. Rows are true classes and columns predicted
+classes; false negatives are in the \emph{malignant} row, \emph{normal} and
+\emph{benign} columns.}
+\label{fig:cm}
+\end{figure}
+
+% =====================================================================================
+\section{Discussion}
+\label{sec:discussion}
+
+\todo{rewrite with the real results. The paragraphs below state what we expect and how
+each outcome should be interpreted, so that the discussion is planned before the numbers
+are known.}
+
+\paragraph{Expected comparison with the passive baseline.}
+After 10 iterations an AL model has seen 1{,}010 labelled images, 62\% of the 1{,}626
+available to the baseline. If its malignant recall and false negatives are comparable to
+the baseline's, AL would have saved the labelling of roughly 600 images; if they are
+better, the explanation is not necessarily the query strategy (see
+Section~\ref{sec:threats}). Because only 10 images are queried, we expect the
+differences between strategies to be small and possibly within run-to-run variance.
+
+\paragraph{Expected effect of the strategies.}
+Margin sampling concentrates on the boundary between the two most probable classes. In
+this dataset the hardest boundary is clinically the most important one --- benign versus
+malignant lesions, which differ mainly in shape and margins --- so we expect margin to
+query more benign/malignant images and, possibly, to reduce false negatives the most.
+Entropy may also select normal images on which the model is uncertain among all three
+classes. \todo{confirm or refute with the class distribution of the queried images}.
+
+\paragraph{Expected effect of the batch size.}
+With a learning rate of $10^{-5}$ and a fixed number of epochs, a batch of 128 performs
+only about 8 weight updates per epoch on 1{,}000 images, against 63 for a batch of 16. We
+therefore expect large batches to train more slowly and stay further from the baseline
+within the 10 iterations, as observed in~\cite{cardoso2024}; a better learning rate or
+more epochs would be needed for a fair comparison of batch sizes.
+
+\paragraph{The role of the human.}
+In the quantitative experiments the oracle never errs. A real annotator can be tired,
+inexperienced, or influenced by the model's suggestion, which we display to make labelling
+faster: if the suggestion is wrong, the annotator may accept it (automation
+bias~\cite{goddard2012automation}), and the model would then be reinforced in its own
+mistake, since it learns from the human's answer. This trade-off between efficiency and
+independence of the human judgement is central to HitL design; hiding the suggestion, or
+showing it only after the human answers, are alternatives worth testing. Explanations
+(Grad-CAM) would let the expert judge whether the model's uncertainty comes from the
+lesion or from artefacts such as calipers and text burned into the image.
+
+\subsection{Threats to validity}
+\label{sec:threats}
+We list the limitations of the current protocol, which also motivate the control
+experiments we plan.
+
+\emph{Unequal training budget.} Each AL refit trains for 10 epochs on the whole labelled
+set, starting from the previous weights. After 10 queries, an AL model has processed about
+$10\times1000 + 10\times\sum_{k=1}^{10}(1000+k) \approx 1.1\times10^5$ training examples,
+against $15\times1626 \approx 2.4\times10^4$ for the passive baseline, i.e.\ about $4.5$
+times more gradient steps. Any advantage of AL over the baseline may therefore come from
+longer training rather than from the choice of images. A passive baseline trained for the
+same number of steps, or with early stopping on the validation set, removes this
+confound.
+
+\emph{No random-sampling control.} Without a run in which the queried images are chosen at
+random~\cite{faria2022joint}, we cannot attribute differences to the uncertainty
+criteria themselves.
+
+\emph{Large initial set and few queries.} Starting from 1{,}000 of 1{,}626 images (61.5\%)
+and querying 10, the labelled set grows by only 1\%; AL is most useful when the initial
+set is small and many queries are made. A smaller $n_0$ (e.g.\ 100) with more queries
+would test the label-efficiency claim more directly.
+
+\emph{Augmented copies in the pool.} The pool contains rotated and flipped copies of
+training images, possibly of images already labelled. A real expert would label an image
+once, and augmentation would be applied afterwards; querying a copy of a known image costs
+a label but brings little information.
+
+\emph{Augmentations that are not physically plausible.} Ultrasound images have a fixed
+orientation (skin at the top, acoustic shadows below lesions); 90$^\circ$ and 180$^\circ$
+rotations produce images a scanner never outputs. Horizontal flips, small rotations,
+speckle-like noise and contrast changes, applied on-the-fly, would be more realistic.
+
+\emph{Single run.} Results come from one data split and one initialisation; differences of
+one or two false negatives in a 42-image malignant test set are within noise. Repeating
+each configuration with several seeds and reporting means and standard deviations would
+allow statistical comparison.
+
+\emph{Model selection.} Choosing the ``best'' strategy by its test-set false negatives
+uses the test set for selection; the validation set should be used instead, with the test
+set reserved for the final report.
+
+% =====================================================================================
+\section{Conclusions and Future Work}
+\label{sec:conclusions}
+
+\todo{"looking back": summarise what was achieved and the main quantitative finding}.
+
+We revisited a CNN with Active Learning and a human in the loop for breast ultrasound
+classification. The main contributions so far are methodological: a pipeline that splits
+the data before augmentation and removes a mislabelled duplicate, an AL loop in which the
+human's answer actually drives learning, and an evaluation centred on false negatives.
+The main difficulties were \todo{e.g.\ training time on Colab, memory, the previous code
+base}.
+
+\paragraph{Relation to Human-Centered AI.}
+The project touches three course topics. \emph{Human-in-the-Loop}: the expert is consulted
+only where the model is uncertain, keeping human effort low while leaving the final
+authority over labels with the human. \emph{Values and evaluation}: optimising for false
+negatives reflects the patient's interest rather than a generic accuracy. \emph{Trust and
+explainability}: explanations and an honest description of limitations are prerequisites
+for a clinician to rely on, or overrule, the system~\cite{shneiderman2020hcai}.
+
+\paragraph{Future work.}
+(i)~Grad-CAM explanations~\cite{selvaraju2017gradcam} shown to the annotator with each
+query, evaluated against the lesion masks of the dataset with IoU or Dice;
+(ii)~a patient-facing agent prototype, in a notebook, that presents the prediction and its
+explanation and answers questions about the disease through retrieval-augmented
+generation~\cite{lewis2020rag} over trusted sources (e.g.~\cite{lpcc}), with a clear
+statement that it is not a medical diagnosis; (iii)~transfer learning from ResNet or
+EfficientNet~\cite{he2016resnet,tan2019efficientnet}; (iv)~the controls of
+Section~\ref{sec:threats}, plus diversity-based and committee-based query
+strategies~\cite{sener2018coreset,settles2009survey}; and (v)~a user study with
+clinicians to measure labelling time, agreement and the effect of showing the model's
+suggestion. \todo{move items to the main text as they get implemented}.
+
+% =====================================================================================
+\section*{Reproducibility}
+The repository (\url{https://github.com/httpirsh/miacd-iach-breast-cancer-diagnosis})
+contains the code, the notebooks, a \texttt{requirements.txt} and a README with
+instructions to obtain the dataset and run the notebooks in order, locally or on Google
+Colab; all parameters are set in the first cells of each notebook and metrics are saved
+to \texttt{results/}. The \LaTeX{} sources of this paper are in \texttt{report/}.
+
+%% \section*{Contribution Statement}
+%% \todo{who did what, if required}
+
+\bibliographystyle{named}
+\bibliography{references}
+
+\end{document}

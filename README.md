@@ -41,6 +41,7 @@ Projeto em fase inicial — a abordagem e o conteúdo deste README vão evoluir.
 │   ├── exemplos_artigos/            # artigos de exemplo indicados pelo professor
 │   ├── template_ijcai26/            # template do relatório (IJCAI-ECAI 26)
 │   └── dataset/                     # metadados e licença do dataset
+├── report/                          # relatório final em LaTeX (template IJCAI-ECAI 26)
 ├── results/                         # métricas guardadas pelos notebooks (criada ao correr)
 └── data/                            # dataset (não versionado, ver abaixo)
 ```
