@@ -29,22 +29,25 @@ def ask_human(image, suggestion):
     return int(input(f"Classifique a imagem ({options}).\nSugestão do modelo: {suggestion} ({CLASSES[suggestion]}): "))
 
 
-def run_active_learning(strategy, x_train, y_train, x_test, y_test, batch_size=32, epochs=10,
+def run_active_learning(strategy, x_train, y_train, x_val, y_val, x_test, y_test, batch_size=32, epochs=10,
                         n_initial=1000, n_queries=10, human=False, seed=None):
     """Treina uma CNN com Active Learning e devolve o histórico de métricas e as previsões no teste.
 
     human=True pede a label a uma pessoa em cada iteração; human=False simula o humano com a label
     verdadeira do dataset (útil para correr as experiências sem intervenção manual).
     Em ambos os casos o modelo é treinado com a label dada pelo "humano".
+    O conjunto de validação (imagens que nunca entram no treino) acompanha cada treino do modelo.
     """
     rng = np.random.default_rng(seed)
     n_classes = len(CLASSES)
     y_train_one_hot = to_categorical(y_train, num_classes=n_classes)
+    y_val_one_hot = to_categorical(y_val, num_classes=n_classes)
     y_test_one_hot = to_categorical(y_test, num_classes=n_classes)
 
     size = x_train.shape[1]
     keras_clf = KerasClassifier(model=build_cnn, model__size=size, model__n_classes=n_classes,
-                                epochs=epochs, batch_size=batch_size, validation_split=0.2, warm_start=True, verbose=0)
+                                epochs=epochs, batch_size=batch_size, warm_start=True, verbose=0,
+                                fit__validation_data=(x_val, y_val_one_hot))
 
     # Usar alguns dados de treino como conjunto inicial já anotado
     initial_idx = rng.choice(len(x_train), size=n_initial, replace=False)
