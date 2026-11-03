@@ -57,7 +57,11 @@ def load_dataset(path, size=224, test_size=0.2, seed=1):
     x_train, x_test, y_train, y_test = train_test_split(
         images, labels, test_size=test_size, stratify=labels, random_state=seed)
     x_train, y_train = augment(x_train, y_train)
-    return x_train, x_test, y_train, y_test
+
+    # Baralhar o treino: o augment junta as cópias por classe no fim, e o validation_split do Keras
+    # usa os últimos 20% sem baralhar (ficaria quase só com reflexões de imagens benignas)
+    order = np.random.default_rng(seed).permutation(len(x_train))
+    return x_train[order], x_test, y_train[order], y_test
 
 
 def summarize(x_train, x_test, y_train, y_test):
