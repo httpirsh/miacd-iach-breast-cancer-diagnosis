@@ -51,7 +51,7 @@ Projeto em fase inicial — a abordagem e o conteúdo deste README vão evoluir.
 
 ## Como correr
 
-Correr os notebooks por ordem: `00` (exploração, opcional), `01` (guarda a baseline em `results/`) e `02`. Os parâmetros (tamanho das imagens, nº de imagens por classe, batch sizes, nº de iterações, humano real ou simulado) estão na secção **1. Configuração** de cada notebook.
+Correr os notebooks por ordem: `00` (exploração, opcional), `01` (guarda a baseline em `results/`) e `02`. Os parâmetros (tamanho das imagens, batch sizes, nº de iterações, humano real ou simulado) estão na secção **1. Configuração** de cada notebook.
 
 - **Google Colab:** copiar o repositório (com o dataset em `data/`) para o Google Drive, em `My Drive/miacd-iach-breast-cancer-diagnosis`. O notebook monta o Drive e instala as dependências em falta.
 - **Localmente:** uma versão de Python suportada pelo TensorFlow (ex.: 3.11; o 3.14 ainda não é suportado) e `pip install -r requirements.txt`. Abrir os notebooks a partir da pasta `notebooks/`.

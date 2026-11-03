@@ -45,23 +45,14 @@ def augment(images, labels):
     return np.concatenate(new_images), np.concatenate(new_labels)
 
 
-def load_dataset(path, size=224, test_size=0.2, max_per_class=None, seed=1):
+def load_dataset(path, size=224, test_size=0.2, seed=1):
     """Devolve x_train, x_test, y_train, y_test (labels numéricas).
 
     A divisão treino/teste é feita ANTES do balanceamento, para que versões rodadas
     da mesma imagem não fiquem em treino e teste ao mesmo tempo (data leakage).
     O conjunto de teste fica com as imagens originais e a distribuição real das classes.
-
-    max_per_class limita o nº de imagens originais por classe, para treinar com menos memória.
     """
     images, labels = load_images(path, size)
-
-    if max_per_class is not None:
-        rng = np.random.default_rng(seed)
-        keep = np.concatenate([
-            rng.permutation(np.where(labels == c)[0])[:max_per_class] for c in range(len(CLASSES))
-        ])
-        images, labels = images[keep], labels[keep]
 
     x_train, x_test, y_train, y_test = train_test_split(
         images, labels, test_size=test_size, stratify=labels, random_state=seed)
