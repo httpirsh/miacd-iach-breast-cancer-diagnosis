@@ -1,7 +1,8 @@
 """Generate the paper's figures (English labels) from results/*.json.
 
 Run from the repository root, after notebooks 01 and 02:
-    python report/figures/make_figures.py
+    .venv/bin/python report/figures/make_figures.py
+Use the project environment: the grouped split depends on the scikit-learn version (1.7.2).
 Writes PDF figures next to this script.
 """
 
@@ -52,7 +53,7 @@ def learning_curves():
             if strategy in ("random", "margin", "malignant"):   # bands only for a few, to stay readable
                 ax.fill_between(n, mean - std, mean + std, color=style["color"], alpha=0.10, linewidth=0)
             ax.plot(n, mean, linewidth=1.4, **style)
-        ax.axhline(full[metric], color="#0b0b0b", linestyle=":", linewidth=1, label="all 505 labelled")
+        ax.axhline(full[metric], color="#0b0b0b", linestyle=":", linewidth=1, label="whole pool labelled")
         ax.set_xlabel("Number of labelled images")
         ax.set_title(f"{title} on the test set")
         ax.grid(alpha=0.25, linewidth=0.5)
