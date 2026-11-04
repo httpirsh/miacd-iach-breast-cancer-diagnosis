@@ -3,6 +3,7 @@
 .~lock.*#
 
 # Ambientes virtuais
+.venv/
 venv/
 env/
 

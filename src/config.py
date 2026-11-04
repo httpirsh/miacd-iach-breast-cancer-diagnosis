@@ -1,4 +1,4 @@
-"""Caminhos do projeto, iguais no Google Colab e localmente (relativos à raiz do repositório)."""
+"""Caminhos do projeto (relativos à raiz do repositório)."""
 
 from pathlib import Path
 
