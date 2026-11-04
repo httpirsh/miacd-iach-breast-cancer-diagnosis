@@ -45,28 +45,24 @@ def plot_confusion_matrix(y_true, y_pred, title="Confusion Matrix"):
     plt.show()
 
 
-def plot_history(results, title, baseline=None):
-    """Accuracy e loss por iteração de Active Learning, para cada batch size.
+def plot_learning_curves(results, metric, title, reference=None, ylabel=None):
+    """Métrica no teste em função do nº de imagens anotadas: média das seeds (linha) ± desvio padrão (sombra).
 
-    results: {batch_size: history}; baseline: {"accuracy_train": x, "accuracy_test": y} do Passive Learning.
+    results: {estratégia: [history de cada seed]}; reference: valor obtido com todas as imagens anotadas.
     """
-    fig, axs = plt.subplots(1, 2, figsize=(12, 4))
-    fig.suptitle(title)
-    colors = ["darkred", "dodgerblue", "green", "orange"]
-
-    for ax, split, name in [(axs[0], "train", "Train set"), (axs[1], "test", "Test set")]:
-        for color, (batch_size, history) in zip(colors, results.items()):
-            iterations = range(len(history[f"accuracy_{split}"]))
-            ax.plot(iterations, history[f"accuracy_{split}"], label=f"accuracy - batch of {batch_size}", color=color)
-            ax.plot(iterations, history[f"loss_{split}"], label=f"loss - batch of {batch_size}", color=color,
-                    linestyle="dashed", linewidth=0.7)
-        if baseline is not None:
-            ax.axhline(baseline[f"accuracy_{split}"], color="black", linestyle="dashed", linewidth=1,
-                       label="passive learning")
-        ax.set_xlabel("Active Learning Iterations")
-        ax.set_ylabel("Accuracy/Loss")
-        ax.set_title(name)
-        ax.set_ylim(0, 1.5)
-
-    axs[1].legend(bbox_to_anchor=(1.05, 1.0), loc="upper left")
+    fig, ax = plt.subplots(figsize=(8, 5))
+    for strategy, runs in results.items():
+        n_labeled = runs[0]["n_labeled"]
+        values = np.array([run[metric] for run in runs])
+        mean, std = values.mean(axis=0), values.std(axis=0)
+        style = {"color": "gray", "linestyle": "dashed"} if strategy == "random" else {}
+        ax.plot(n_labeled, mean, label=strategy, **style)
+        ax.fill_between(n_labeled, mean - std, mean + std, alpha=0.15, color=style.get("color"))
+    if reference is not None:
+        ax.axhline(reference, color="black", linestyle="dotted", label="todas as imagens anotadas")
+    ax.set_xlabel("Nº de imagens anotadas")
+    ax.set_ylabel(ylabel or metric)
+    ax.set_title(title)
+    ax.legend()
+    ax.grid(alpha=0.3)
     plt.show()

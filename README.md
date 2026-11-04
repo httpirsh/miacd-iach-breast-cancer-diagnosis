@@ -10,10 +10,17 @@ Projeto em fase inicial — a abordagem e o conteúdo deste README vão evoluir.
 
 ## Estado atual
 
-- Pré-processamento e balanceamento do dataset (classes: `benign`, `malignant`, `normal`).
-- CNN para classificação das imagens.
-- Active Learning com [modAL](https://modal-python.readthedocs.io/): comparação das estratégias `uncertainty_sampling`, `entropy_sampling` e `margin_sampling`.
-- Baseline com Passive Learning para comparação.
+- Pré-processamento: divisão treino/validação/teste (65/15/20) **antes** do balanceamento, para não haver data leakage; exclusão de uma imagem duplicada com duas classes.
+- **Passive Learning** (notebook 01, média de 3 seeds no teste):
+
+  | Modelo | Accuracy | F1 macro | Recall maligno |
+  |---|---|---|---|
+  | CNN do grupo de 2024 (lr 0.00001) | 0.36 | 0.37 | 0.55 |
+  | CNN corrigida (lr 0.001 + early stopping) | 0.75 | 0.73 | 0.70 |
+  | MobileNetV2 pré-treinada + fine-tuning | **0.84** | **0.83** | **0.80** |
+
+- **Active Learning** com [modAL](https://modal-python.readthedocs.io/) (notebook 02): `uncertainty`, `entropy`, `margin` e uma estratégia nossa focada nos malignos, comparadas com a escolha ao acaso (20 seeds). `margin` chega a 95% do F1 máximo com 190 imagens anotadas, contra 250 ao acaso (~24% menos anotações), mas as estratégias de incerteza detetam menos cancros do que a escolha ao acaso.
+- Human-in-the-Loop: o humano pode dar as labels no notebook 02 (`HUMAN = True`).
 
 ## Próximos passos
 
@@ -26,13 +33,14 @@ Projeto em fase inicial — a abordagem e o conteúdo deste README vão evoluir.
 .
 ├── notebooks/                       # correr por esta ordem
 │   ├── 00_data_exploration.ipynb    # classes, exemplos, tamanhos, memória necessária
-│   ├── 01_passive_learning.ipynb    # baseline: CNN treinada com todo o conjunto de treino
-│   └── 02_active_learning.ipynb     # Active Learning (uncertainty, entropy, margin) vs baseline
+│   ├── 01_passive_learning.ipynb    # baseline: CNN e MobileNetV2 treinadas com todo o conjunto de treino
+│   └── 02_active_learning.ipynb     # Active Learning (uncertainty, entropy, margin) vs escolha ao acaso
 ├── src/                             # código partilhado pelos notebooks
 │   ├── config.py                    # caminhos (dataset, resultados)
 │   ├── data.py                      # carregamento, divisão treino/teste e balanceamento
 │   ├── exploration.py               # gráficos e contagens da exploração dos dados
-│   ├── model.py                     # CNN
+│   ├── gpu.py                       # preparar a GPU NVIDIA local para o TensorFlow
+│   ├── model.py                     # CNN, MobileNetV2 (transfer learning), treino com early stopping
 │   ├── active_learning.py           # ciclo de Active Learning com Human-in-the-Loop
 │   └── evaluation.py                # métricas (recall, F1, falsos negativos) e gráficos
 ├── docs/
@@ -52,7 +60,25 @@ Projeto em fase inicial — a abordagem e o conteúdo deste README vão evoluir.
 
 ## Como correr
 
-Correr os notebooks por ordem: `00` (exploração, opcional), `01` (guarda a baseline em `results/`) e `02`. Os parâmetros (tamanho das imagens, batch sizes, nº de iterações, humano real ou simulado) estão na secção **1. Configuração** de cada notebook.
+Correr os notebooks por ordem: `00` (exploração, opcional), `01` (guarda a baseline em `results/`) e `02`. Os parâmetros (tamanho das imagens, learning rate, seeds, nº de imagens pedidas ao humano, humano real ou simulado) estão na secção **1. Configuração** de cada notebook.
 
-- **Google Colab:** copiar o repositório (com o dataset em `data/`) para o Google Drive, em `My Drive/miacd-iach-breast-cancer-diagnosis`. O notebook monta o Drive e instala as dependências em falta.
-- **Localmente:** uma versão de Python suportada pelo TensorFlow (ex.: 3.11; o 3.14 ainda não é suportado) e `pip install -r requirements.txt`. Abrir os notebooks a partir da pasta `notebooks/`.
+### Localmente, com GPU
+
+É preciso uma versão de Python suportada pelo TensorFlow (ex.: 3.11; o 3.14 ainda não é suportado) e, para usar a GPU, uma placa NVIDIA com o driver instalado. No Linux, o `requirements.txt` instala o TensorFlow com as bibliotecas CUDA incluídas, sem ser preciso instalar o CUDA à parte.
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# confirmar que a GPU é detetada (deve dizer "A treinar na GPU: ...")
+python -c "from src.gpu import setup_gpu; setup_gpu()"
+```
+
+Registar o kernel do Jupyter (uma vez) e abrir os notebooks a partir da pasta `notebooks/`, com o kernel **IACH (.venv)**:
+
+```bash
+python -m ipykernel install --user --name iach-projeto --display-name "IACH (.venv)"
+```
+
+A primeira célula de cada notebook de treino chama `setup_gpu()` (`src/gpu.py`), que prepara a GPU e diz se o treino vai correr na GPU ou no CPU. Se a GPU ficar sem memória, reduzir o `IMG_SIZE`. Na primeira execução, o Keras descarrega os pesos pré-treinados da MobileNetV2 (~9 MB).

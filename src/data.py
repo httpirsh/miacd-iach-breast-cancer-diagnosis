@@ -60,13 +60,16 @@ def augment(images, labels):
     return np.concatenate(new_images), np.concatenate(new_labels)
 
 
-def load_dataset(path, size=224, val_size=0.15, test_size=0.2, seed=1):
+def load_dataset(path, size=224, val_size=0.15, test_size=0.2, seed=1, balance=True):
     """Devolve x_train, x_val, x_test, y_train, y_val, y_test (labels numéricas).
 
     As imagens originais são divididas em treino (65%), validação (15%) e teste (20%), de forma
     estratificada, ANTES do balanceamento. Assim, nenhuma imagem de validação ou de teste (nem uma
     versão rodada dela) é usada no treino (data leakage). Só o treino é balanceado; a validação e o
     teste ficam com as imagens originais e a distribuição real das classes.
+
+    balance=False devolve o treino só com as imagens originais (usado no Active Learning, onde o humano
+    anota imagens reais e não cópias rodadas).
     """
     images, labels = load_images(path, size)
 
@@ -74,6 +77,9 @@ def load_dataset(path, size=224, val_size=0.15, test_size=0.2, seed=1):
         images, labels, test_size=test_size, stratify=labels, random_state=seed)
     x_train, x_val, y_train, y_val = train_test_split(
         x_rest, y_rest, test_size=val_size / (1 - test_size), stratify=y_rest, random_state=seed)
+
+    if not balance:
+        return x_train, x_val, x_test, y_train, y_val, y_test
 
     # Balancear e baralhar só o treino (o augment junta as cópias por classe no fim)
     x_train, y_train = augment(x_train, y_train)

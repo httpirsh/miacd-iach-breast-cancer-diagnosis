@@ -1,8 +1,9 @@
-tensorflow
-scikeras
+tensorflow[and-cuda]; sys_platform == "linux"  # inclui as bibliotecas CUDA para usar a GPU NVIDIA
+tensorflow; sys_platform != "linux"
 modAL-python
 numpy
 scikit-learn<1.8  # o modAL-python ainda usa check_X_y(force_all_finite=...), removido no 1.8
 matplotlib
 seaborn
 pillow
+ipykernel

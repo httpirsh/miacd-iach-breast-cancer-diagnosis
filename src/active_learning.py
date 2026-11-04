@@ -1,22 +1,62 @@
-"""Ciclo de Active Learning com Human-in-the-Loop (modAL + scikeras)."""
+"""Ciclo de Active Learning com Human-in-the-Loop (modAL).
+
+O modelo é um classificador (regressão logística) treinado sobre as features da MobileNetV2 congelada
+(ver extract_features em src/model.py). Como é rápido de treinar, pode ser treinado de novo em cada
+iteração e as experiências podem repetir-se com várias seeds.
+"""
 
 import time
+import warnings
 
 import numpy as np
 from modAL.models import ActiveLearner
 from modAL.uncertainty import entropy_sampling, margin_sampling, uncertainty_sampling
+from modAL.utils.selection import multi_argmax
 from PIL import Image
-from scikeras.wrappers import KerasClassifier
-from tensorflow.keras.utils import to_categorical
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 
 from .data import CLASSES
-from .model import build_cnn
+from .evaluation import compute_metrics
+
+# O modAL usa um nome antigo de um argumento do scikit-learn; o aviso não afeta os resultados
+warnings.filterwarnings("ignore", message=".*force_all_finite.*", category=FutureWarning)
+
+
+def random_sampling(classifier, X_pool, n_instances=1, rng=None):
+    """Estratégia de referência: escolhe imagens ao acaso, sem olhar para o modelo."""
+    rng = rng if rng is not None else np.random.default_rng()
+    return rng.choice(len(X_pool), size=n_instances, replace=False)
+
+
+def malignant_sampling(classifier, X_pool, n_instances=1):
+    """Estratégia nossa, focada no objetivo do projeto: escolhe as imagens em que o modelo está mais
+    indeciso sobre se são malignas ou não, ou seja, com probabilidade de maligno mais perto de 0.5.
+
+    As estratégias do modAL olham para as 3 classes por igual, e muitas das imagens que escolhem estão
+    na fronteira normal/benigno, que não interessa para detetar cancro.
+    """
+    p_malignant = classifier.predict_proba(X_pool)[:, CLASSES.index("malignant")]
+    return multi_argmax(-np.abs(p_malignant - 0.5), n_instances=n_instances)
+
 
 STRATEGIES = {
+    "random": random_sampling,
     "uncertainty": uncertainty_sampling,
     "entropy": entropy_sampling,
     "margin": margin_sampling,
+    "malignant": malignant_sampling,
 }
+
+
+def make_classifier(C=0.01):
+    """Regressão logística sobre as features normalizadas.
+
+    C controla a regularização (menor = modelo mais simples, menos overfitting).
+    class_weight="balanced" dá mais peso às classes com menos imagens anotadas.
+    """
+    return make_pipeline(StandardScaler(), LogisticRegression(C=C, class_weight="balanced", max_iter=5000))
 
 
 def ask_human(image, suggestion):
@@ -29,62 +69,53 @@ def ask_human(image, suggestion):
     return int(input(f"Classifique a imagem ({options}).\nSugestão do modelo: {suggestion} ({CLASSES[suggestion]}): "))
 
 
-def run_active_learning(strategy, x_train, y_train, x_val, y_val, x_test, y_test, batch_size=32, epochs=10,
-                        n_initial=1000, n_queries=10, human=False, seed=None):
-    """Treina uma CNN com Active Learning e devolve o histórico de métricas e as previsões no teste.
+def run_active_learning(strategy, f_train, y_train, f_test, y_test, n_initial=20, n_instances=10, n_queries=25,
+                        C=0.01, seed=0, human=False, images=None):
+    """Corre um ciclo de Active Learning e devolve as métricas no teste depois de cada iteração.
 
-    human=True pede a label a uma pessoa em cada iteração; human=False simula o humano com a label
-    verdadeira do dataset (útil para correr as experiências sem intervenção manual).
-    Em ambos os casos o modelo é treinado com a label dada pelo "humano".
-    O conjunto de validação (imagens que nunca entram no treino) acompanha cada treino do modelo.
+    f_train / f_test: features da MobileNetV2 (uma linha por imagem).
+    n_initial: imagens anotadas no início, escolhidas ao acaso (as mesmas para todas as estratégias com a
+               mesma seed, para a comparação ser justa).
+    n_instances: imagens pedidas ao humano em cada iteração; n_queries: nº de iterações.
+    human=True pede a label a uma pessoa (precisa de `images`, as imagens de treino, para as mostrar);
+    human=False simula o humano com a label verdadeira do dataset.
+    Em ambos os casos o modelo aprende com a label dada pelo "humano".
     """
     rng = np.random.default_rng(seed)
-    n_classes = len(CLASSES)
-    y_train_one_hot = to_categorical(y_train, num_classes=n_classes)
-    y_val_one_hot = to_categorical(y_val, num_classes=n_classes)
-    y_test_one_hot = to_categorical(y_test, num_classes=n_classes)
+    initial_idx = rng.choice(len(f_train), size=n_initial, replace=False)
+    pool_idx = np.setdiff1d(np.arange(len(f_train)), initial_idx)   # índices das imagens ainda sem label
 
-    size = x_train.shape[1]
-    keras_clf = KerasClassifier(model=build_cnn, model__size=size, model__n_classes=n_classes,
-                                epochs=epochs, batch_size=batch_size, warm_start=True, verbose=0,
-                                fit__validation_data=(x_val, y_val_one_hot))
+    query_rng = np.random.default_rng(seed + 1000)   # só usado pela estratégia random
+    query_strategy = STRATEGIES[strategy]
+    if strategy == "random":
+        query_strategy = lambda clf, X, n_instances=1: random_sampling(clf, X, n_instances, query_rng)
 
-    # Usar alguns dados de treino como conjunto inicial já anotado
-    initial_idx = rng.choice(len(x_train), size=n_initial, replace=False)
-    x_labeled, y_labeled = x_train[initial_idx], y_train_one_hot[initial_idx]
-    x_pool, y_pool = np.delete(x_train, initial_idx, axis=0), np.delete(y_train, initial_idx, axis=0)
+    learner = ActiveLearner(estimator=make_classifier(C), query_strategy=query_strategy,
+                            X_training=f_train[initial_idx], y_training=y_train[initial_idx])
 
-    learner = ActiveLearner(estimator=keras_clf, query_strategy=STRATEGIES[strategy],
-                            X_training=x_labeled, y_training=y_labeled)
+    history = {"n_labeled": [], "queried": []}
 
-    history = {"accuracy_train": [], "loss_train": [], "accuracy_test": [], "loss_test": []}
+    def record():
+        history["n_labeled"].append(len(learner.y_training))
+        for name, value in compute_metrics(y_test, learner.predict(f_test)).items():
+            history.setdefault(name, []).append(value)
 
-    # Loop de Active Learning
+    record()
     for _ in range(n_queries):
-        query_idx, _ = learner.query(x_pool)
-        query_image = x_pool[query_idx]
+        result = learner.query(f_train[pool_idx], n_instances=n_instances)
+        query = np.asarray(result[0] if isinstance(result, tuple) else result)   # posições dentro da pool
+        chosen = pool_idx[query]                                                 # índices no conjunto de treino
 
         if human:
-            suggestion = int(np.argmax(learner.estimator.model_.predict(query_image, verbose=0)))
-            label = ask_human(query_image[0], suggestion)
+            suggestions = learner.predict(f_train[chosen])
+            labels = np.array([ask_human(images[i], int(s)) for i, s in zip(chosen, suggestions)])
         else:
-            label = int(y_pool[query_idx][0])
-        label = to_categorical([label], num_classes=n_classes)
+            labels = y_train[chosen]
 
-        learner.teach(query_image, label)
-        x_labeled = np.append(x_labeled, query_image, axis=0)
-        y_labeled = np.append(y_labeled, label, axis=0)
+        learner.teach(f_train[chosen], labels)   # junta as imagens ao conjunto anotado e volta a treinar
+        pool_idx = np.delete(pool_idx, query)
+        history["queried"].extend(int(i) for i in chosen)
+        record()
 
-        # Loss e accuracy nos dados anotados até agora e nos dados de teste
-        loss, accuracy = learner.estimator.model_.evaluate(x_labeled, y_labeled, verbose=0)
-        history["accuracy_train"].append(accuracy)
-        history["loss_train"].append(loss)
-        loss, accuracy = learner.estimator.model_.evaluate(x_test, y_test_one_hot, verbose=0)
-        history["accuracy_test"].append(accuracy)
-        history["loss_test"].append(loss)
-
-        x_pool = np.delete(x_pool, query_idx, axis=0)
-        y_pool = np.delete(y_pool, query_idx, axis=0)
-
-    y_pred = np.argmax(learner.estimator.model_.predict(x_test, verbose=0), axis=1)
-    return history, y_pred
+    history["y_pred"] = learner.predict(f_test).tolist()
+    return history
