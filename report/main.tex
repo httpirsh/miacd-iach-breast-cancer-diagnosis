@@ -61,11 +61,10 @@ cost of an error is asymmetric: missing a malignancy can delay treatment, wherea
 alarm leads to further exams. We study whether Active Learning (AL), in which a human
 expert is asked to label only the images the model selects, reduces the labelling effort
 of a breast ultrasound classifier without increasing missed cancers. On the public Breast
-Ultrasound Images dataset (780 images; normal, benign, malignant), we first rebuild a
-previous student pipeline that suffered from data leakage, an underfitted CNN and a
-human-in-the-loop step whose answers were ignored. With a leakage-free split, a
-MobileNetV2 fine-tuned on all training labels reaches 0.840 test accuracy and detects 80\%
-of the malignant cases, against 0.36 for the original CNN. We then simulate AL on frozen
+Ultrasound Images dataset (780 images; normal, benign, malignant), we first build a
+leakage-free pipeline in which the label typed by the human is the one the model learns
+from. With all training labels, a fine-tuned MobileNetV2 reaches 0.840 test accuracy and
+detects 80\% of the malignant cases, against 0.746 for a CNN trained from scratch. We then simulate AL on frozen
 MobileNetV2 features with three uncertainty-based query strategies, a malignancy-focused
 strategy of our own and a random-sampling baseline, over 20 repetitions. Uncertainty-based
 queries improve macro F1 over random sampling by at most 2.4 points, a difference that is
@@ -100,22 +99,17 @@ Active Learning addresses the first obstacle: the model iteratively selects the 
 images whose labels it expects to be most informative and asks an oracle --- a human
 expert --- to label them~\cite{settles2009survey}. Because the expert is consulted inside
 the training loop, AL is also an instance of Human-in-the-Loop (HitL) machine
-learning~\cite{mosqueira2023hitl,budd2021survey}. A previous student project on the same
-dataset combined a CNN with AL and reported that AL reached 68\% test accuracy against
-45.92\% for passive learning~\cite{cardoso2024}. On inspection, that study had four
-problems: (i)~images were augmented \emph{before} the train/test split, so rotated copies
-of test images were seen in training (data leakage~\cite{kaufman2012leakage});
-(ii)~the CNN barely learned, because of a very low learning rate; (iii)~in two of the three
-query strategies the label typed by the human was not the one used to update the model;
-and (iv)~the AL model was trained for several times more epochs than the passive one, started with 1{,}000 of 2{,}009 images already labelled, queried only ten more, and was
-not compared with random sampling --- so the reported gain cannot be attributed to the
-choice of images. Moreover, only accuracy was reported, although the clinically relevant
-error is the false negative.
+learning~\cite{mosqueira2023hitl,budd2021survey}. Evaluating AL fairly requires care:
+augmenting images \emph{before} the train/test split lets rotated copies of test images be
+seen in training (data leakage~\cite{kaufman2012leakage}); an AL model retrained after
+every query gets far more training than a passive one; starting from a large labelled set
+leaves little for the query strategy to choose; and without a random-sampling baseline a
+gain cannot be attributed to the choice of images. Moreover, accuracy alone hides the
+clinically relevant error, the false negative.
 
-In this paper we rebuild that study on sound methodological ground and ask a sharper
-question: \emph{does uncertainty-based AL save labels without costing missed cancers?}
+In this paper we ask: \emph{does uncertainty-based AL save labels without costing missed cancers?}
 We (1)~split the data before any augmentation and remove a duplicated image with
-conflicting labels; (2)~fix the CNN and add transfer learning from
+conflicting labels; (2)~train a CNN from scratch and a transfer-learning model based on
 MobileNetV2~\cite{sandler2018mobilenetv2}, which establishes what is achievable with all
 labels; (3)~simulate AL from a small seed set (20 images, 10 queries per round, 25 rounds)
 with least-confidence, margin and entropy sampling, a random baseline and a
@@ -179,12 +173,9 @@ Faria et al.~\cite{faria2022joint} studied the joint role of query batch size an
 strategy in heart-attack prediction and found that least-confidence, margin, entropy and
 random sampling all reduced the data needed by 57--60\%, with small query batches working
 best. Vieira et al.~\cite{vieira2021openworld} applied AL with a stacking ensemble to
-open-world object recognition for self-driving cars. Closest to our work, Cardoso et
-al.~\cite{cardoso2024} applied a CNN with the same three query strategies to BUSI; we reuse
-their architecture as a starting point and correct the issues listed in the introduction.
-Note that in~\cite{cardoso2024} ``batch size'' denoted the optimiser's mini-batch, whereas
-in~\cite{faria2022joint} and in our AL experiments it denotes the number of images queried
-per round.
+open-world object recognition for self-driving cars. As in~\cite{faria2022joint}, in our
+AL experiments ``batch size'' denotes the number of images queried per round, not the
+optimiser's mini-batch.
 
 \paragraph{Human-centred and explainable AI.}
 Shneiderman~\cite{shneiderman2020hcai} argues that high automation and high human control
@@ -230,8 +221,7 @@ with an NVIDIA GeForce RTX~3050 Laptop GPU (4\,GB) and 13\,GB of RAM.
 \subsection{Pre-processing and data splits}
 \label{sec:preprocessing}
 Images are converted to one grey-level channel, since ultrasound is monochromatic, resized
-to $128\times128$ pixels and scaled to $[0,1]$. We first used $224\times224$, as
-in~\cite{cardoso2024}, but the AL notebook was killed for lack of RAM on our machine; at
+to $128\times128$ pixels and scaled to $[0,1]$. We first used $224\times224$, but the AL notebook was killed for lack of RAM on our machine; at
 $128\times128$ all images take 124\,MB, and a preliminary run with MobileNetV2 at
 $224\times224$ did not perform better (Table~\ref{tab:prelim}). Resizing to a square
 distorts the mostly landscape images; we accept this for simplicity.
@@ -274,11 +264,11 @@ weights instead (Section~\ref{sec:al}).
 
 \subsection{Passive learning models}
 \paragraph{CNN trained from scratch.}
-We keep the architecture of~\cite{cardoso2024}: four convolutional blocks with 32, 64, 128
+We use a simple CNN: four convolutional blocks with 32, 64, 128
 and 32 filters of size $4\times4$, ReLU and no padding, each followed by batch
 normalisation~\cite{ioffe2015batchnorm} and $2\times2$ max pooling, with
 dropout~\cite{srivastava2014dropout} of 0.3 after the second and third blocks, then a
-32-unit dense layer and a 3-way softmax. With the original settings (Adam~\cite{kingma2015adam}
+32-unit dense layer and a 3-way softmax. With our first settings (Adam~\cite{kingma2015adam}
 with learning rate $10^{-5}$, 15 epochs) the network underfitted: validation accuracy stayed
 at 0.17 --- every image predicted as \emph{normal} --- for 8 of the 15 epochs, and test
 accuracy ended at 0.36, below the 0.56 of always answering \emph{benign}. We made three
@@ -303,7 +293,7 @@ times smaller ($10^{-4}$) so as not to destroy the pre-trained features.
 \label{sec:al}
 
 \paragraph{Model.} An AL loop retrains the model after every round. Retraining a CNN on the
-GPU every round was slow, and with the previous design the process was killed for lack of
+GPU every round was slow, and in our first design the process was killed for lack of
 RAM. We therefore pass each image \emph{once} through the frozen MobileNetV2 (global
 average pooling), obtaining a 1{,}280-dimensional feature vector, and train on these
 vectors a multinomial logistic regression with standardised inputs and class weights
@@ -358,8 +348,7 @@ diversity term.
 \paragraph{The human in the loop.} With the \texttt{HUMAN} option on, each selected image is
 displayed in the notebook with the model's suggested class and the annotator types the
 correct class; the classifier is trained with the typed label, even if wrong --- the
-behaviour of a real deployment, and a fix to~\cite{cardoso2024}, where the typed label was
-ignored. Running 100 experiments with a person answering 250 queries each is not feasible,
+behaviour of a real deployment. Running 100 experiments with a person answering 250 queries each is not feasible,
 so in the quantitative experiments the oracle is simulated with the ground-truth label,
 which corresponds to an always-correct expert~\cite{budd2021survey}.
 
@@ -423,8 +412,8 @@ Oracle & simulated (ground truth) \\
 \label{sec:results}
 
 \subsection{Passive learning}
-Table~\ref{tab:passive} shows the test results. Fixing the learning rate and stopping
-criterion of the original CNN raises accuracy from 0.36 to 0.746 and malignant recall from
+Table~\ref{tab:passive} shows the test results. Raising the learning rate and adding early
+stopping to the CNN raises accuracy from 0.36 (first settings) to 0.746 and malignant recall from
 0.55 to 0.698. MobileNetV2 with fine-tuning is the best model on every metric, with
 accuracy 0.840, malignant recall 0.802 and 8.3 false negatives out of 42 malignant images on
 average; it is also much more stable across seeds (accuracy standard deviation 0.005 versus
@@ -439,14 +428,14 @@ accuracy of 0.68--0.74.
 \toprule
 Model & Acc. & Macro F1 & Rec.\,mal. & FN \\
 \midrule
-Orig.\ CNN$^\dagger$ & .36 & .37 & .55 & 19 \\
-Fixed CNN & .746\,\spm\,.032 & .728\,\spm\,.029 & .698\,\spm\,.049 & 12.7\,\spm\,2.1 \\
+CNN, first$^\dagger$ & .36 & .37 & .55 & 19 \\
+CNN & .746\,\spm\,.032 & .728\,\spm\,.029 & .698\,\spm\,.049 & 12.7\,\spm\,2.1 \\
 MobileNetV2 & \textbf{.840}\,\spm\,.005 & \textbf{.831}\,\spm\,.008 & \textbf{.802}\,\spm\,.049 & \textbf{8.3}\,\spm\,2.1 \\
 \bottomrule
 \end{tabular}
 \caption{Passive learning on the test set (156 images, 42 malignant), mean \spm\ std over 3
 seeds. Rec.\,mal.: malignant recall; FN: malignant images predicted as benign or normal.
-$^\dagger$Settings of~\protect\cite{cardoso2024} on our leakage-free split, one run.}
+$^\dagger$First settings (lr $10^{-5}$, 15 epochs), one run.}
 \label{tab:passive}
 \end{table}
 
@@ -479,7 +468,7 @@ worse than the chosen MobileNetV2 configuration.
 \toprule
 Configuration & Acc. & Rec.\,mal. \\
 \midrule
-CNN, original (lr $10^{-5}$, 15 epochs) & 0.36 & 0.55 \\
+CNN, first settings (lr $10^{-5}$, 15 epochs) & 0.36 & 0.55 \\
 CNN, lr $10^{-4}$ + early stopping & 0.17 & 0.00 \\
 CNN, lr $10^{-3}$ + early stopping & 0.76 & 0.67 \\
 CNN, lr $10^{-3}$, malignant weight $\times1.5$ & 0.75 & 0.62 \\
@@ -590,13 +579,10 @@ the malignant strategy; the models trained on actively chosen images also predic
 \label{sec:discussion}
 
 \paragraph{Methodology changes the conclusions.}
-The previous study reported that AL beat passive learning by 22 accuracy
-points~\cite{cardoso2024}. Our results do not support that claim. Its passive baseline was
-an underfitted network, and its test set contained transformed copies of training images;
-once both are fixed, the same architecture reaches 0.746 and transfer learning 0.840. Its AL
-models were retrained for 10 epochs after every query, i.e.\ for several times more
-epochs than the passive one, which alone favours them, and with 1{,}000 labels at the start and 10 queries the labelled set
-grew by 1\%, too little for the strategies to matter. With a small seed set, a random
+An underfitted passive baseline, a test set containing transformed copies of training
+images, or an AL model retrained for many more epochs than the passive one would all make
+AL look better than it is; so would a large initial labelled set with few queries, where
+the strategies barely matter. With a small seed set, a random
 baseline, the same initial images for all strategies and 20 repetitions, the effect of AL
 on macro F1 is small --- at most 2.4 points --- and not distinguishable from noise with
 our sample size. The ``24\% fewer labels'' read from the mean curves
@@ -663,10 +649,9 @@ except for the malignant strategy ($p=0.010$).
 \section{Conclusions and Future Work}
 \label{sec:conclusions}
 
-We revisited a CNN with human-in-the-loop Active Learning for breast ultrasound
-classification. Correcting data leakage, an underfitted network and an ignored human label,
-and adding transfer learning, raised test accuracy from 0.36 to 0.840 and malignant recall
-from 0.55 to 0.80. With a fair AL protocol --- small seed set, random baseline, paired
+We studied human-in-the-loop Active Learning for breast ultrasound classification. With a
+leakage-free split, transfer learning from MobileNetV2 reached a test accuracy of 0.840 and a
+malignant recall of 0.80 with all labels. With a fair AL protocol --- small seed set, random baseline, paired
 repetitions --- uncertainty-based AL gave at most a small, non-significant gain in macro F1
 and a significant loss in malignant recall. A simple malignancy-focused strategy halved that
 loss. The main difficulties were the limited memory of our hardware, which forced a smaller

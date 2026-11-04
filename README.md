@@ -15,8 +15,7 @@ Projeto em fase inicial — a abordagem e o conteúdo deste README vão evoluir.
 
   | Modelo | Accuracy | F1 macro | Recall maligno |
   |---|---|---|---|
-  | CNN do grupo de 2024 (lr 0.00001) | 0.36 | 0.37 | 0.55 |
-  | CNN corrigida (lr 0.001 + early stopping) | 0.63 | 0.61 | 0.68 |
+  | CNN treinada de raiz (lr 0.001 + early stopping) | 0.63 | 0.61 | 0.68 |
   | MobileNetV2 pré-treinada + fine-tuning | **0.79** | **0.76** | **0.69** |
 
 - **Active Learning** com [modAL](https://modal-python.readthedocs.io/) (notebook 02): `uncertainty`, `entropy`, `margin` e uma estratégia nossa focada nos malignos, comparadas com a escolha ao acaso (20 seeds). Sem data leakage, **nenhuma estratégia poupa anotações em relação à escolha ao acaso**, e as estratégias de incerteza detetam um pouco menos cancros no início.
@@ -46,7 +45,6 @@ Projeto em fase inicial — a abordagem e o conteúdo deste README vão evoluir.
 │   └── evaluation.py                # métricas (recall, F1, falsos negativos) e gráficos
 ├── docs/
 │   ├── projeto/                     # enunciado 2026/27, a nossa proposta, checklist, análise
-│   ├── referencia_grupo_2024/       # trabalho de outro grupo sobre o mesmo tema (orientação)
 │   ├── exemplos_artigos/            # artigos de exemplo indicados pelo professor
 │   ├── template_ijcai26/            # template do relatório (IJCAI-ECAI 26)
 │   └── dataset/                     # metadados e licença do dataset

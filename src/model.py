@@ -14,8 +14,9 @@ def compile_model(model, learning_rate):
 
 
 def build_cnn(size=128, n_classes=3, learning_rate=0.001):
-    """CNN treinada de raiz: a arquitetura do grupo de 2024, com duas correções.
+    """CNN simples treinada de raiz.
 
+    Escolhas que fizeram diferença nos testes:
     - learning rate 0.001 em vez de 0.00001 (com 0.00001 o modelo quase não aprendia em 15 épocas);
     - ReLU em vez de sigmoid na camada Dense escondida (a sigmoid satura e atrasa a aprendizagem).
     """
