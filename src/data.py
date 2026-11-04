@@ -5,7 +5,7 @@ import os
 
 import numpy as np
 from PIL import Image
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedGroupKFold
 
 CLASSES = ["normal", "benign", "malignant"]  # índice = label numérica
 
@@ -18,32 +18,56 @@ AUGMENTATIONS = {
 }
 
 
-def find_duplicates(path):
-    """Nomes dos ficheiros que aparecem mais do que uma vez no dataset (conteúdo igual).
+def find_duplicates(path, threshold=0.95):
+    """Agrupa as imagens repetidas do dataset: a mesma ecografia guardada em ficheiros diferentes.
 
-    O dataset tem pelo menos um caso: "benign (433).png" e "malignant (145).png" são a mesma imagem
-    com labels diferentes. Como não se sabe qual está certa, as cópias são todas excluídas.
+    O dataset tem muitas imagens quase iguais (a mesma ecografia com um recorte ligeiramente diferente),
+    por isso comparar os ficheiros byte a byte não chega. Cada imagem é reduzida a 32×32 píxeis e
+    normalizada; duas imagens são consideradas a mesma se a correlação entre os píxeis for > threshold.
+
+    Devolve:
+    - groups: {nome do ficheiro: nº do grupo}; imagens repetidas ficam no mesmo grupo;
+    - conflicts: nomes das imagens cujo grupo tem labels diferentes (ex.: "benign (433).png" e
+      "malignant (145).png" são a mesma imagem). Como não se sabe qual label está certa, são excluídas.
     """
-    groups = {}
-    for name in sorted(os.listdir(path)):
-        with open(os.path.join(path, name), "rb") as f:
-            groups.setdefault(hashlib.md5(f.read()).hexdigest(), []).append(name)
-    return {name for names in groups.values() if len(names) > 1 for name in names}
+    names = sorted(os.listdir(path))
+    pixels = np.array([np.asarray(Image.open(os.path.join(path, name)).convert("L").resize((32, 32)),
+                                  dtype=np.float32).ravel() for name in names])
+    pixels = (pixels - pixels.mean(axis=1, keepdims=True)) / (pixels.std(axis=1, keepdims=True) + 1e-6)
+    similarity = pixels @ pixels.T / pixels.shape[1]   # correlação entre cada par de imagens
+
+    # Juntar em grupos (se A ~ B e B ~ C, então A, B e C ficam no mesmo grupo)
+    parent = list(range(len(names)))
+    def root(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+    for i, j in zip(*np.where(np.triu(similarity > threshold, k=1))):
+        parent[root(i)] = root(j)
+
+    groups = {name: root(i) for i, name in enumerate(names)}
+    labels_per_group = {}
+    for name, group in groups.items():
+        labels_per_group.setdefault(group, set()).add(name.split(" ")[0])
+    conflicts = {name for name, group in groups.items() if len(labels_per_group[group]) > 1}
+    return groups, conflicts
 
 
 def load_images(path, size=224):
     """Lê as imagens em escala de cinzento, redimensionadas e normalizadas para [0, 1].
 
-    As classes vêm do nome do ficheiro (ex.: "benign (12).png"). As imagens duplicadas são excluídas.
+    As classes vêm do nome do ficheiro (ex.: "benign (12).png"). As imagens repetidas com labels
+    diferentes são excluídas. Devolve também o grupo de cada imagem (imagens repetidas têm o mesmo grupo).
     """
-    duplicates = find_duplicates(path)
-    names = [name for name in sorted(os.listdir(path)) if name not in duplicates]
+    groups, conflicts = find_duplicates(path)
+    names = [name for name in sorted(os.listdir(path)) if name not in conflicts]
     images = np.array([
         np.asarray(Image.open(os.path.join(path, name)).convert("L").resize((size, size)), dtype=np.float32) / 255.0
         for name in names
     ])
     labels = np.array([CLASSES.index(name.split(" ")[0]) for name in names])
-    return images, labels
+    return images, labels, np.array([groups[name] for name in names])
 
 
 def augment(images, labels):
@@ -60,23 +84,34 @@ def augment(images, labels):
     return np.concatenate(new_images), np.concatenate(new_labels)
 
 
-def load_dataset(path, size=224, val_size=0.15, test_size=0.2, seed=1, balance=True):
+def load_dataset(path, size=224, val_size=0.15, test_size=0.2, seed=1, balance=True, unique_train=False):
     """Devolve x_train, x_val, x_test, y_train, y_val, y_test (labels numéricas).
 
-    As imagens originais são divididas em treino (65%), validação (15%) e teste (20%), de forma
-    estratificada, ANTES do balanceamento. Assim, nenhuma imagem de validação ou de teste (nem uma
-    versão rodada dela) é usada no treino (data leakage). Só o treino é balanceado; a validação e o
+    As imagens originais são divididas em treino (~65%), validação (~15%) e teste (~20%), de forma
+    estratificada e por grupos (as cópias da mesma ecografia ficam sempre no mesmo conjunto), ANTES do
+    balanceamento. Assim, nenhuma imagem de validação ou de teste (nem uma cópia ou versão rodada dela)
+    é usada no treino (data leakage). Só o treino é balanceado; a validação e o
     teste ficam com as imagens originais e a distribuição real das classes.
 
     balance=False devolve o treino só com as imagens originais (usado no Active Learning, onde o humano
     anota imagens reais e não cópias rodadas).
+    unique_train=True deixa no treino só uma imagem de cada grupo de repetidas (no Active Learning, o
+    humano não deve ter de anotar a mesma ecografia duas vezes).
     """
-    images, labels = load_images(path, size)
+    images, labels, groups = load_images(path, size)
 
-    x_rest, x_test, y_rest, y_test = train_test_split(
-        images, labels, test_size=test_size, stratify=labels, random_state=seed)
-    x_train, x_val, y_train, y_val = train_test_split(
-        x_rest, y_rest, test_size=val_size / (1 - test_size), stratify=y_rest, random_state=seed)
+    # Divisão por grupos: todas as cópias de uma ecografia ficam no mesmo conjunto.
+    # StratifiedGroupKFold com 5 partes: uma parte (~20%) para teste; depois, do resto, ~1/5 para validação.
+    folds = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=seed)
+    rest, test = next(folds.split(images, labels, groups))
+    folds = StratifiedGroupKFold(n_splits=round(1 / (val_size / (1 - test_size))), shuffle=True, random_state=seed)
+    train, val = next(folds.split(images[rest], labels[rest], groups[rest]))
+    train, val = rest[train], rest[val]
+    if unique_train:
+        _, first = np.unique(groups[train], return_index=True)
+        train = train[np.sort(first)]
+    x_train, x_val, x_test = images[train], images[val], images[test]
+    y_train, y_val, y_test = labels[train], labels[val], labels[test]
 
     if not balance:
         return x_train, x_val, x_test, y_train, y_val, y_test

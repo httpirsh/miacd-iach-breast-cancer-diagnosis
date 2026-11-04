@@ -10,16 +10,17 @@ Projeto em fase inicial — a abordagem e o conteúdo deste README vão evoluir.
 
 ## Estado atual
 
-- Pré-processamento: divisão treino/validação/teste (65/15/20) **antes** do balanceamento, para não haver data leakage; exclusão de uma imagem duplicada com duas classes.
+- Pré-processamento sem data leakage: o dataset tem 780 ficheiros mas só **601 ecografias diferentes** (muitas estão repetidas com recortes ligeiramente diferentes). A divisão treino/validação/teste (~65/15/20) é feita **por grupos de imagens repetidas** e **antes** do balanceamento; 19 imagens repetidas com labels contraditórias são excluídas.
 - **Passive Learning** (notebook 01, média de 3 seeds no teste):
 
   | Modelo | Accuracy | F1 macro | Recall maligno |
   |---|---|---|---|
   | CNN do grupo de 2024 (lr 0.00001) | 0.36 | 0.37 | 0.55 |
-  | CNN corrigida (lr 0.001 + early stopping) | 0.75 | 0.73 | 0.70 |
-  | MobileNetV2 pré-treinada + fine-tuning | **0.84** | **0.83** | **0.80** |
+  | CNN corrigida (lr 0.001 + early stopping) | 0.63 | 0.61 | 0.68 |
+  | MobileNetV2 pré-treinada + fine-tuning | **0.79** | **0.76** | **0.69** |
 
-- **Active Learning** com [modAL](https://modal-python.readthedocs.io/) (notebook 02): `uncertainty`, `entropy`, `margin` e uma estratégia nossa focada nos malignos, comparadas com a escolha ao acaso (20 seeds). `margin` chega a 95% do F1 máximo com 190 imagens anotadas, contra 250 ao acaso (~24% menos anotações), mas as estratégias de incerteza detetam menos cancros do que a escolha ao acaso.
+- **Active Learning** com [modAL](https://modal-python.readthedocs.io/) (notebook 02): `uncertainty`, `entropy`, `margin` e uma estratégia nossa focada nos malignos, comparadas com a escolha ao acaso (20 seeds). Sem data leakage, **nenhuma estratégia poupa anotações em relação à escolha ao acaso**, e as estratégias de incerteza detetam um pouco menos cancros no início.
+- Exemplos de previsões do modelo (falsos negativos, outros erros, acertos) no notebook 01.
 - Human-in-the-Loop: o humano pode dar as labels no notebook 02 (`HUMAN = True`).
 
 ## Próximos passos

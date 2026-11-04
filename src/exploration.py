@@ -52,3 +52,18 @@ def plot_examples(path, names, labels, per_class=4, seed=0):
         axs[row, 0].set_title(class_name, loc="left")
     plt.tight_layout()
     plt.show()
+
+
+def plot_duplicate_groups(path, groups, max_groups=4):
+    """Mostra alguns grupos de imagens repetidas (cada linha é um grupo: a mesma ecografia em ficheiros diferentes)."""
+    groups = groups[:max_groups]
+    width = max(len(g) for g in groups)
+    fig, axs = plt.subplots(len(groups), width, figsize=(3.2 * width, 2.8 * len(groups)), squeeze=False)
+    for ax in axs.flat:
+        ax.axis("off")
+    for row, group in zip(axs, groups):
+        for ax, name in zip(row, group):
+            ax.imshow(Image.open(os.path.join(path, name)).convert("L"), cmap="gray")
+            ax.set_title(name, fontsize=10)
+    plt.tight_layout()
+    plt.show()

@@ -66,3 +66,23 @@ def plot_learning_curves(results, metric, title, reference=None, ylabel=None):
     ax.legend()
     ax.grid(alpha=0.3)
     plt.show()
+
+
+def plot_predictions(images, y_true, y_pred, indices, title, per_row=6):
+    """Mostra imagens do teste com a classe real e a prevista (título verde = certo, vermelho = errado)."""
+    indices = list(indices)
+    if not indices:
+        print(f"{title}: nenhuma imagem")
+        return
+    rows = (len(indices) + per_row - 1) // per_row
+    fig, axs = plt.subplots(rows, per_row, figsize=(2.6 * per_row, 3.3 * rows), squeeze=False)
+    fig.suptitle(title)
+    for ax in axs.flat:
+        ax.axis("off")
+    for ax, i in zip(axs.flat, indices):
+        ax.imshow(images[i], cmap="gray")
+        correct = y_true[i] == y_pred[i]
+        ax.set_title(f"real: {CLASSES[y_true[i]]}\nprevisto: {CLASSES[y_pred[i]]}", fontsize=9,
+                     color="green" if correct else "red")
+    plt.tight_layout()
+    plt.show()

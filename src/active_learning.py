@@ -14,6 +14,7 @@ from modAL.uncertainty import entropy_sampling, margin_sampling, uncertainty_sam
 from modAL.utils.selection import multi_argmax
 from PIL import Image
 from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -74,15 +75,17 @@ def run_active_learning(strategy, f_train, y_train, f_test, y_test, n_initial=20
     """Corre um ciclo de Active Learning e devolve as métricas no teste depois de cada iteração.
 
     f_train / f_test: features da MobileNetV2 (uma linha por imagem).
-    n_initial: imagens anotadas no início, escolhidas ao acaso (as mesmas para todas as estratégias com a
-               mesma seed, para a comparação ser justa).
+    n_initial: imagens anotadas no início, escolhidas ao acaso de forma estratificada (as mesmas para todas
+               as estratégias com a mesma seed, para a comparação ser justa).
     n_instances: imagens pedidas ao humano em cada iteração; n_queries: nº de iterações.
     human=True pede a label a uma pessoa (precisa de `images`, as imagens de treino, para as mostrar);
     human=False simula o humano com a label verdadeira do dataset.
     Em ambos os casos o modelo aprende com a label dada pelo "humano".
     """
-    rng = np.random.default_rng(seed)
-    initial_idx = rng.choice(len(f_train), size=n_initial, replace=False)
+    # Conjunto inicial ao acaso mas estratificado: tem sempre imagens das 3 classes (com 20 imagens
+    # ao acaso podia faltar uma classe, e o modelo nem saberia que ela existe)
+    initial_idx, _ = train_test_split(np.arange(len(f_train)), train_size=n_initial, stratify=y_train,
+                                      random_state=seed)
     pool_idx = np.setdiff1d(np.arange(len(f_train)), initial_idx)   # índices das imagens ainda sem label
 
     query_rng = np.random.default_rng(seed + 1000)   # só usado pela estratégia random
