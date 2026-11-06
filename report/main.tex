@@ -615,7 +615,21 @@ labels'' --- and the fine-tuned network reached 0.840 accuracy. Both results wer
 artefacts of repeated scans: once copies of a scan are kept in the same set and the pool
 holds one image per scan, the accuracy drops by five points and the AL advantage
 disappears. Repeated scans are not documented in the dataset description and are found
-only by comparing the images; a byte-level check finds just one. This shows how fragile
+only by comparing the images; a byte-level check finds just one.
+
+Two mechanisms plausibly explain the inflation, although we did not measure them
+separately. First, when copies of a scan fall in both training and test, part of the test
+set is no longer unseen: a model that has fitted the training copy predicts the test copy
+almost for free. This favours high-capacity models that can memorise individual images,
+such as a fine-tuned network that reaches a training accuracy close to 1.00. Second, in
+the file-level AL pool about a fifth of the files (179 of 780) are extra copies of a scan.
+Random sampling spends some of its labels on copies of scans that are already labelled,
+which add almost no information. Uncertainty-based strategies avoid them, because the model
+is already confident on an image whose copy it has been trained on. Part of the apparent
+AL saving may therefore come from avoiding duplicates rather than from finding informative
+images; with one image per scan in the pool, random sampling no longer wastes labels this
+way and the gap closes. In this sense, the leakage made AL look better because it made
+random sampling look worse. This shows how fragile
 reported AL gains are, and it is consistent with the large spread of accuracies reported
 on BUSI (Section~\ref{sec:related}). An underfitted passive baseline, an AL model trained
 for more epochs than the passive one, or a large initial labelled set with few queries
