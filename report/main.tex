@@ -18,11 +18,8 @@
 \usepackage[small]{caption}
 \usepackage{graphicx}
 \usepackage{amsmath}
-\usepackage{amsthm}
 \usepackage{booktabs}
 \usepackage{multirow}
-\usepackage{algorithm}
-\usepackage{algorithmic}
 \usepackage{xcolor}
 \usepackage[switch]{lineno}
 
@@ -68,9 +65,9 @@ saving disappear. With this leakage-free split, we simulate AL on frozen MobileN
 features with three uncertainty-based query strategies, a malignancy-focused strategy of
 our own and a random-sampling baseline, over 20 paired repetitions. No strategy is better
 than random sampling: margin sampling is statistically indistinguishable from it, and
-least-confidence, entropy and our strategy have a significantly lower area under the
-macro-F1 learning curve; least-confidence and entropy sampling also detect significantly
-fewer cancers early in the curve. We conclude that the images a model is unsure about are
+least-confidence, entropy and our strategy are significantly worse in macro F1 over the
+learning curve; least-confidence and entropy sampling also detect significantly fewer
+cancers early in the curve. We conclude that the images a model is unsure about are
 neither the most informative nor the most clinically relevant ones here, and that claims of
 label savings in medical AL require grouped splits, a random baseline and per-class
 metrics. Code and results:
@@ -80,6 +77,7 @@ metrics. Code and results:
 % =====================================================================================
 \section{Introduction}
 
+\subsection{Motivation}
 Breast cancer is the most frequently diagnosed cancer in women worldwide and the leading
 cause of cancer death among them~\cite{bray2024globocan}. In Portugal, about 9{,}000 new
 cases are detected and more than 2{,}000 women die from the disease every year; around 1\%
@@ -89,108 +87,94 @@ lesions and as a first-line exam in dense breasts and younger women. Reading ult
 images, however, is operator-dependent and demands experience, which motivates
 computer-aided diagnosis.
 
+\subsection{Problem description}
 Convolutional neural networks (CNNs) have reported high accuracies on breast ultrasound
-classification~\cite{heliyon2023fusion,kaggle_anaya}. Two obstacles separate these results
-from clinical use. First, CNNs need many \emph{labelled} images, and each label costs a
-specialist's time. Second, a model that classifies an image without involving the
+classification~\cite{heliyon2023fusion,kaggle_anaya}, but two obstacles separate these
+results from clinical use. First, CNNs need many \emph{labelled} images, and each label
+costs a specialist's time. Second, a model that classifies an image without involving the
 clinician is hard to trust, audit or correct; in a high-stakes domain the human must keep
 control of the decision~\cite{shneiderman2020hcai,holzinger2016interactive}.
 
-Active Learning addresses the first obstacle: the model iteratively selects the unlabelled
-images whose labels it expects to be most informative and asks an oracle --- a human
-expert --- to label them~\cite{settles2009survey}. Because the expert is consulted inside
-the training loop, AL is also an instance of Human-in-the-Loop (HitL) machine
-learning~\cite{mosqueira2023hitl,budd2021survey}. Evaluating AL fairly requires care:
-if copies of the same image --- augmented versions, or the same scan saved twice --- end up
-in both training and test sets, test scores are inflated (data
-leakage~\cite{kaufman2012leakage}); an AL model retrained after every query can get far
-more training than a passive one; starting from a large labelled set leaves little for the
-query strategy to choose; and without a random-sampling baseline a gain cannot be
-attributed to the choice of images. Moreover, accuracy alone hides the clinically relevant
-error, the false negative.
+Active Learning addresses the first obstacle: the model selects the unlabelled images
+whose labels it expects to be most useful and asks a human expert to label
+them~\cite{settles2009survey}. Because the expert is consulted inside the training loop,
+AL is also a form of Human-in-the-Loop (HitL) machine
+learning~\cite{mosqueira2023hitl,budd2021survey}. Evaluating AL fairly requires care: if
+copies of the same image end up in both training and test sets, test scores are inflated
+(data leakage~\cite{kaufman2012leakage}); without a random-sampling baseline a gain cannot
+be attributed to the choice of images; and accuracy alone hides the clinically relevant
+error, the false negative --- a cancer classified as benign or normal.
 
-In this paper we ask: \emph{does uncertainty-based AL save expert labels without costing
-missed cancers?} We (1)~detect near-duplicate scans in the dataset, exclude those with
-contradictory labels and split the data \emph{by scan} before any augmentation;
-(2)~train a CNN from scratch and a transfer-learning model based on
-MobileNetV2~\cite{sandler2018mobilenetv2}, which establishes what is achievable with all
-labels; (3)~simulate AL from a small seed set (20 images, 10 queries per round, 25 rounds)
-with least-confidence, margin and entropy sampling, a random baseline and a
-malignancy-focused strategy we propose, over 20 repetitions with paired statistical tests;
-and (4)~evaluate every model by malignant recall and false negatives, not only accuracy.
+\subsection{Approach and objectives}
+We ask: \emph{does uncertainty-based AL save expert labels without costing missed
+cancers?} Our objectives are to:
+\begin{enumerate}
+\item build a leakage-free dataset, detecting repeated scans and splitting the data
+\emph{by scan} before any augmentation;
+\item train a CNN from scratch and a pre-trained MobileNetV2~\cite{sandler2018mobilenetv2}
+with all labels (\emph{passive learning}), as the reference to beat;
+\item simulate AL from 20 labelled images with three classic query strategies, one
+malignancy-focused strategy of our own and random sampling, over 20 repetitions;
+\item let a human label the selected images in the notebook, with the model learning from
+the human's answer; and
+\item evaluate every model by malignant recall and false negatives, not only accuracy.
+\end{enumerate}
 
-The main findings are negative and, we argue, important for human-centred AI. Leakage
-through repeated scans is enough to make AL look useful: on our first, file-level split
-the strategies appeared to need 24\% fewer labels than random sampling; on the grouped
-split this advantage vanishes, and most strategies are significantly \emph{worse} than
-random. Asking the expert about the images the model finds most ambiguous did not save
-labels and, early in the process, cost detected cancers. The project connects to three
-course topics: the clinician as an active participant whose answers steer learning (HitL
-rather than fully automated learning~\cite{hcai_slides_hitl}), evaluation chosen according
-to human values (the asymmetric cost of missing a cancer), and trust built on honest
-reporting of what the system cannot do.
-
-The remainder of the paper is structured as follows. Section~\ref{sec:related} reviews
-related work; Section~\ref{sec:materials} describes the data and tools;
-Section~\ref{sec:methods} the pre-processing, models, AL loop and metrics;
-Section~\ref{sec:experiments} the experimental setup; Section~\ref{sec:results} the
-results, discussed in Section~\ref{sec:discussion}. Section~\ref{sec:conclusions}
-concludes.
+The main findings are negative and, we argue, important for human-centred AI. Repeated
+scans were enough to make AL look useful: on our first, file-level split the strategies
+appeared to need 24\% fewer labels than random sampling; on the grouped split this
+advantage vanishes, and most strategies are significantly \emph{worse} than random. The
+project connects to three course topics: the clinician as an active participant whose
+answers steer learning (HitL rather than fully automated
+learning~\cite{hcai_slides_hitl}), evaluation chosen according to human values (the cost
+of missing a cancer), and trust built on honest reporting of what the system cannot do.
 
 % =====================================================================================
 \section{Related Work}
 \label{sec:related}
 
-\paragraph{CNN-based breast ultrasound classification.}
-The Breast Ultrasound Images (BUSI) dataset~\cite{aldhabyani2020busi} is the most used public
-benchmark for this task. Reported results vary widely: a CNN feature extractor combined
-with an SVM reached 95.6\% accuracy on benign versus malignant
-classification~\cite{heliyon2023fusion}, and public notebooks report accuracies above
+\paragraph{Breast ultrasound classification.}
+The Breast Ultrasound Images (BUSI) dataset~\cite{aldhabyani2020busi} is the most used
+public benchmark for this task. Reported results vary widely: a CNN feature extractor
+combined with an SVM reached 95.6\% accuracy on benign versus
+malignant~\cite{heliyon2023fusion}, and public notebooks report accuracies above
 99\%~\cite{kaggle_cbis}. Such figures should be read with care: BUSI is small, contains
 duplicates and images with annotations burned in by the scanner~\cite{pawlowska2024curated},
-and many pipelines augment before splitting. Under these conditions a CNN can exploit
-shortcuts unrelated to the lesion~\cite{geirhos2020shortcut,zech2018confounding}, and leaked
-copies inflate test scores. With few images, transfer learning from networks
-pre-trained on ImageNet~\cite{deng2009imagenet,yosinski2014transferable}, such as
-ResNet~\cite{he2016resnet}, EfficientNet~\cite{tan2019efficientnet} or
-MobileNetV2~\cite{sandler2018mobilenetv2}, is the usual remedy.
+and many pipelines augment before splitting, so leaked copies can inflate test scores and
+a CNN can learn shortcuts unrelated to the lesion~\cite{geirhos2020shortcut}. With few
+images, transfer learning from networks pre-trained on ImageNet~\cite{deng2009imagenet},
+such as MobileNetV2~\cite{sandler2018mobilenetv2} or EfficientNet~\cite{tan2019efficientnet},
+is the usual remedy.
 
 \paragraph{Active Learning.}
-In pool-based AL~\cite{settles2009survey}, a model trained on a small labelled set scores a
-pool of unlabelled examples with a \emph{query strategy} and requests labels for the
-best-scored ones. Uncertainty (least-confidence) sampling~\cite{lewis1994sequential} queries
-the example whose most likely class has the lowest probability; margin
-sampling~\cite{scheffer2001margin} the one with the smallest gap between its two most likely
-classes; entropy sampling~\cite{shannon1948} the one with the most spread-out predictive
-distribution. For deep models, Bayesian approximations~\cite{gal2017deep} and
-diversity-based strategies such as core-sets~\cite{sener2018coreset} address over-confident
-softmax outputs and redundant batches; random sampling is the baseline any strategy must
-beat. Budd et al.~\cite{budd2021survey} survey AL and HitL for medical image analysis and
-note that most studies simulate the oracle with ground-truth labels, as we do for the
-quantitative experiments. modAL~\cite{danka2018modal} implements these strategies in
-Python and includes an interactive-labelling example in Jupyter~\cite{modal_interactive}, on
-which our HitL interface is based.
+In pool-based AL~\cite{settles2009survey}, a model trained on a small labelled set scores
+a pool of unlabelled examples with a \emph{query strategy} and requests labels for the
+best-scored ones. The classic strategies --- least confidence~\cite{lewis1994sequential},
+margin~\cite{scheffer2001margin} and entropy~\cite{shannon1948} --- all query the examples
+the model is most uncertain about; random sampling is the baseline any strategy must beat.
+Budd et al.~\cite{budd2021survey} survey AL and HitL for medical image analysis and note
+that most studies simulate the human with ground-truth labels, as we do for the
+quantitative experiments. The modAL library~\cite{danka2018modal} implements these
+strategies in Python and includes an interactive-labelling example in
+Jupyter~\cite{modal_interactive}, on which our HitL interface is based.
 
 \paragraph{AL for medical diagnosis at the University of Coimbra.}
 Pinto et al.~\cite{pinto2022active} combined modAL with a neural network for symptom-based
 diagnosis of 41 diseases and matched or exceeded models in the literature with less data.
-Faria et al.~\cite{faria2022joint} studied the joint role of query batch size and query
-strategy in heart-attack prediction and found that least-confidence, margin, entropy and
-random sampling all reduced the data needed by 57--60\%, with small query batches working
-best. Vieira et al.~\cite{vieira2021openworld} applied AL with a stacking ensemble to
-open-world object recognition for self-driving cars. As in~\cite{faria2022joint}, in our
-AL experiments ``batch size'' denotes the number of images queried per round, not the
-optimiser's mini-batch.
+Faria et al.~\cite{faria2022joint} studied query batch size and query strategy in
+heart-attack prediction and found that least-confidence, margin, entropy and random
+sampling all reduced the data needed by 57--60\%, with small query batches working best.
+Vieira et al.~\cite{vieira2021openworld} applied AL with a stacking ensemble to open-world
+object recognition for self-driving cars.
 
-\paragraph{Human-centred and explainable AI.}
+\paragraph{Human-centred AI.}
 Shneiderman~\cite{shneiderman2020hcai} argues that high automation and high human control
 are compatible and that trustworthy systems keep humans in charge of consequential
 decisions. Holzinger~\cite{holzinger2016interactive} discusses when a human in the loop
 helps machine learning in health informatics, and Mosqueira-Rey et
 al.~\cite{mosqueira2023hitl} classify HitL paradigms, of which AL is the one where the
 machine drives the interaction. Showing the model's suggestion to the human can cause
-automation bias~\cite{goddard2012automation}. Grad-CAM~\cite{selvaraju2017gradcam} produces
-class-specific heat maps used to check whether a CNN looks at the lesion or at artefacts.
+automation bias~\cite{goddard2012automation}.
 
 % =====================================================================================
 \section{Materials}
@@ -200,53 +184,30 @@ class-specific heat maps used to check whether a CNN looks at the lesion or at a
 We use the Breast Ultrasound Images dataset~\cite{aldhabyani2020busi}, distributed by Dataset
 Ninja under a CC0~1.0 licence~\cite{datasetninja}. It contains 780 PNG images from 600 women
 aged 25 to 75, acquired in 2018 and labelled by radiologists as \emph{normal} (133),
-\emph{benign} (437) or \emph{malignant} (210). Each lesion image also has a pixel mask of the
-lesion, not used for training. Image sizes range from 190 to 1048 pixels in width (median
-564) and from 310 to 719 in height (median 474). The class is given by the file name. The
-dataset is imbalanced: there are more than three benign images per normal one.
+\emph{benign} (437) or \emph{malignant} (210); the class is given by the file name. Image
+sizes range from 190 to 1048 pixels in width and from 310 to 719 in height. The dataset is
+imbalanced: there are more than three benign images per normal one.
 
-\paragraph{Repeated scans.} Comparing file contents byte by byte finds a single duplicate
-(\texttt{benign (433)} and \texttt{malignant (145)}), but inspecting the false negatives of
-our first models revealed pairs of visually identical test images. Many scans are stored
-more than once, often with a slightly different crop. We therefore compare the images
-themselves: each is reduced to $32\times32$ pixels and standardised, and two images are
-taken to be the same scan if the Pearson correlation of their pixels exceeds 0.95; scans
-are grouped transitively. The 780 files contain only \textbf{601 distinct scans}: 462 appear
-once, 112 twice, 20 three times, 5 four times and 2 seven times. Some groups mix classes
---- the same scan labelled benign and malignant, or benign and normal. Since we cannot know
-which label is correct, the 19 images in such groups are excluded, leaving \textbf{761
-images} (131 normal, 426 benign, 204 malignant) from 593 distinct scans.
+\subsection{Repeated scans}
+Comparing file contents byte by byte finds a single duplicate (\texttt{benign (433)} and
+\texttt{malignant (145)}), but inspecting the false negatives of our first models revealed
+pairs of visually identical test images: many scans are stored more than once, often with a
+slightly different crop. We therefore compare the images themselves: each is reduced to
+$32\times32$ pixels, and two images are taken to be the same scan if the correlation of
+their pixels exceeds 0.95. The 780 files contain only \textbf{601 distinct scans}: 462
+appear once, 112 twice, 20 three times, 5 four times and 2 seven times. Some scans appear
+with different classes --- labelled benign in one file and malignant in another, for
+example. Since we cannot know which label is correct, the 19 images of such scans are
+excluded, leaving \textbf{761 images} (131 normal, 426 benign, 204 malignant).
 
-\subsection{Tools}
-The project is written in Python~3.11 with TensorFlow/Keras~2.21 for the neural networks,
-scikit-learn~1.7 for data splitting, the logistic-regression classifier and metrics,
-modAL~0.4.2~\cite{danka2018modal} for the AL loop, SciPy for statistical tests, and NumPy,
-Pillow, Matplotlib and seaborn for data handling and plots. Shared code lives in a
-\texttt{src/} package and experiments are run from three Jupyter notebooks (data
-exploration, passive learning, active learning). All experiments ran locally on a laptop
-with an NVIDIA GeForce RTX~3050 Laptop GPU (4\,GB) and 13\,GB of RAM.
-
-% =====================================================================================
-\section{Methods}
-\label{sec:methods}
-
-\subsection{Pre-processing and data splits}
-\label{sec:preprocessing}
-Images are converted to one grey-level channel, since ultrasound is monochromatic, resized
-to $128\times128$ pixels and scaled to $[0,1]$. We first used $224\times224$, but the AL
-notebook was killed for lack of RAM on our machine; at $128\times128$ all images take about
-120\,MB (367\,MB at $224\times224$), and a preliminary run with MobileNetV2 at
-$224\times224$ did not perform better (Table~\ref{tab:prelim}). Resizing to a square
-distorts the mostly landscape images; we accept this for simplicity.
-
+\subsection{Data splits and class balancing}
 The 761 images are split into training ($\approx$64\%), validation ($\approx$17\%) and
-test ($\approx$20\%) sets with scikit-learn's \texttt{StratifiedGroupKFold} and a fixed seed:
-the split is stratified by class and \emph{grouped by scan}, so all copies of a scan fall
-in the same set. It is done \textbf{before} any augmentation, so that no validation or test
-image, nor a copy or transformed version of it, is ever used for training
-(Table~\ref{tab:splits}). Validation and test keep the original images and the real class
-distribution. The validation set decides when to stop training and selects the
-regularisation of the AL classifier; the test set is used for the reported evaluation.
+test ($\approx$20\%) sets, stratified by class and \emph{grouped by scan}, so that all
+copies of a scan fall in the same set (Table~\ref{tab:splits}). The split is done
+\textbf{before} any augmentation, so no validation or test image, nor a copy or rotated
+version of it, is ever used for training. Validation and test keep the original images and
+the real class distribution. The validation set decides when to stop training; the test
+set is used only for the reported evaluation.
 
 \begin{table}[t]
 \centering
@@ -267,161 +228,190 @@ passive learning; the AL pool keeps one image of each training scan.}
 \label{tab:splits}
 \end{table}
 
-\paragraph{Balancing (passive learning only).}
-For passive learning the training set is balanced by adding rotated and mirrored copies of
-its own images: five extra copies of each normal image (90$^\circ$ and 180$^\circ$
-rotations, a vertical flip, and both rotations combined with the flip), three of each
-malignant image (180$^\circ$, flip, both) and one of each benign image (flip), then
-shuffled. This brings the three classes to similar sizes (Table~\ref{tab:splits}) so the
-network is not pushed towards the majority class. For AL we deliberately do \emph{not}
-augment, and we keep a single image per scan: an expert labels real images, and asking for
-the label of a rotated copy, or of a second file of an already-labelled scan, would waste
-their time. Class imbalance in AL is handled by class weights instead (Section~\ref{sec:al}).
+For passive learning, the training set is balanced with rotated and mirrored copies of its
+own images: five extra copies of each normal image, three of each malignant image and one
+of each benign image, which brings the three classes to similar sizes. For AL we do
+\emph{not} augment, and we keep a single image per scan: an expert labels real images, and
+asking for the label of a rotated copy, or of a second file of an already-labelled scan,
+would waste their time.
+
+\subsection{Tools}
+The project is written in Python~3.11 with TensorFlow/Keras~2.21 for the neural networks,
+scikit-learn~1.7 for data splitting, the AL classifier and metrics,
+modAL~0.4.2~\cite{danka2018modal} for the query strategies, and SciPy for statistical
+tests. Shared code lives in a \texttt{src/} package and the experiments run from three
+Jupyter notebooks (data exploration, passive learning, active learning), locally on a
+laptop with an NVIDIA GeForce RTX~3050 GPU (4\,GB) and 13\,GB of RAM.
+
+% =====================================================================================
+\section{Methods}
+\label{sec:methods}
+
+\subsection{Pre-processing}
+Images are converted to one grey-level channel, since ultrasound is monochromatic, resized
+to $128\times128$ pixels and scaled to $[0,1]$. We first used $224\times224$, but the AL
+notebook was killed for lack of RAM on our machine; at $128\times128$ all images take about
+120\,MB instead of 367\,MB, and MobileNetV2 did not perform better at $224\times224$
+(Table~\ref{tab:prelim}).
 
 \subsection{Passive learning models}
 \paragraph{CNN trained from scratch.}
-We use a simple CNN: four convolutional blocks with 32, 64, 128
-and 32 filters of size $4\times4$, ReLU and no padding, each followed by batch
-normalisation~\cite{ioffe2015batchnorm} and $2\times2$ max pooling, with
-dropout~\cite{srivastava2014dropout} of 0.3 after the second and third blocks, then a
-32-unit dense layer and a 3-way softmax. With our first settings (Adam~\cite{kingma2015adam}
-with learning rate $10^{-5}$, 15 epochs, sigmoid in the dense layer) the network
-underfitted: validation accuracy stayed at 0.17 --- every image predicted as \emph{normal}
---- for 8 of the 15 epochs, and test accuracy ended at 0.36, below always answering
-\emph{benign}. We made three changes: learning rate $10^{-3}$; ReLU instead of sigmoid in
-the hidden dense layer, which saturated, plus dropout before the output; and early
-stopping~\cite{prechelt1998early} on the validation loss (patience 10, at most 60 epochs,
-best weights restored) instead of a fixed number of epochs.
+Four convolutional blocks with 32, 64, 128 and 32 filters of size $4\times4$, each with
+ReLU, batch normalisation~\cite{ioffe2015batchnorm} and max pooling, with
+dropout~\cite{srivastava2014dropout} of 0.3 after the second and third blocks, followed by
+a 32-unit dense layer and a softmax output with one probability per class. It is trained
+with Adam~\cite{kingma2015adam}, learning rate $0.001$, and early
+stopping~\cite{prechelt1998early}: training stops when the validation loss has not
+improved for 10 epochs (at most 60) and the best weights are kept.
 
 \paragraph{MobileNetV2 with transfer learning.}
-With fewer than 400 distinct training scans, learning generic visual features from scratch
-is hard. MobileNetV2~\cite{sandler2018mobilenetv2}, pre-trained on ImageNet~\cite{deng2009imagenet},
-already encodes edges, textures and shapes, and has only about 2.3\,M parameters without
-its classification head, which fits our 4\,GB GPU. The grey image is repeated over three
-channels and rescaled to $[-1,1]$, as the network expects; the backbone is followed by
-global average pooling, dropout of 0.3 and a 3-way softmax. Training has two phases, each
-with the same early stopping: (1)~the backbone is frozen and only the new head is trained
-(learning rate $10^{-3}$); (2)~fine-tuning: the last 30 layers of the backbone are unfrozen,
-keeping batch-normalisation layers frozen, and training continues with a learning rate ten
-times smaller ($10^{-4}$) so as not to destroy the pre-trained features.
+With fewer than 400 distinct training scans, learning visual features from scratch is
+hard. MobileNetV2~\cite{sandler2018mobilenetv2}, pre-trained on over a million ImageNet
+images~\cite{deng2009imagenet}, already detects edges, textures and shapes, and is small
+enough for our 4\,GB GPU. The grey image is repeated over three channels, as the network
+expects, and a new output layer for our three classes is added. Training has two phases,
+both with early stopping: (1)~the pre-trained network is frozen and only the new layer is
+trained (learning rate $0.001$); (2)~\emph{fine-tuning}: the last 30 layers are unfrozen
+and training continues with a learning rate ten times smaller ($0.0001$), so as not to
+destroy what the network already knows.
 
 \subsection{Active Learning with a human in the loop}
 \label{sec:al}
 
-\paragraph{Model.} An AL loop retrains the model after every round. Retraining a CNN on the
-GPU every round was slow, and in our first design the process was killed for lack of
-RAM. We therefore pass each image \emph{once} through the frozen MobileNetV2 (global
-average pooling), obtaining a 1{,}280-dimensional feature vector, and train on these
-vectors a multinomial logistic regression with standardised inputs and class weights
-inversely proportional to class frequency in the labelled set (scikit-learn's
-\texttt{balanced} option). This is equivalent to training only the new head of the frozen
-network (phase~1 above) and refits in milliseconds, which makes 100 full AL runs feasible
-in 94 seconds. The inverse regularisation strength $C$ was chosen on the validation set
-among $\{0.001, 0.01, 0.1, 1\}$, training on the whole pool; $C=0.01$ gave the best
-validation accuracy (0.756, against 0.732--0.748 for the others).
+\paragraph{Model.} An AL loop retrains the model after every round. Retraining a CNN every
+round was slow and ran out of memory, so each image is passed \emph{once} through the frozen
+MobileNetV2, which turns it into a vector of 1{,}280 features, and AL trains a logistic
+regression on these vectors, with class weights that compensate the class imbalance. This
+is equivalent to training only the new output layer of phase~(1) above, and it retrains in
+milliseconds. Its regularisation strength was chosen on the validation set ($C=0.01$).
 
-\paragraph{Loop.} Algorithm~\ref{alg:al} summarises the procedure
-(\texttt{src/active\_learning.py}). For a given seed, $n_0=20$ pool images, drawn at random
-but stratified by class so that every class is present, form the initial labelled set
-$\mathcal{L}$, identical for all strategies so that comparisons are paired. At each of
-$Q=25$ rounds, the strategy scores the remaining pool $\mathcal{U}$ and the $k=10$
-best-scored images are labelled, moved to $\mathcal{L}$, and the classifier is refitted on
-$\mathcal{L}$. After every round the test metrics are recorded, which yields a learning
-curve from 20 to 270 labelled images --- 71\% of the pool.
+\paragraph{Loop.} Each repetition runs the following steps, implemented in
+\texttt{src/active\_learning.py}:
+\begin{enumerate}
+\item 20 pool images are chosen at random, with all three classes represented, and labelled;
+they are the same for every strategy, so the strategies can be compared in pairs;
+\item the model is trained on the labelled images;
+\item the query strategy chooses the 10 most useful images of the remaining pool, which are
+shown to the human and labelled;
+\item the model is retrained with the new labels and evaluated on the test set;
+\item steps 3--4 are repeated 25 times, up to 270 labelled images (71\% of the pool).
+\end{enumerate}
 
-\begin{algorithm}[t]
-\caption{Pool-based Active Learning with HitL}
-\label{alg:al}
-\begin{algorithmic}[1]
-\REQUIRE pool features $X$, strategy $\phi$, $n_0$, $k$, $Q$
-\STATE $\mathcal{L} \leftarrow$ $n_0$ labelled images (random, stratified); $\mathcal{U} \leftarrow X \setminus \mathcal{L}$
-\STATE fit classifier $f$ on $\mathcal{L}$
-\FOR{$t = 1$ \TO $Q$}
-  \STATE $S \leftarrow$ the $k$ images of $\mathcal{U}$ with the highest $\phi(f(x))$
-  \STATE show each $x \in S$ and its suggestion $\arg\max_c f_c(x)$ to the human
-  \STATE $\mathcal{L} \leftarrow \mathcal{L} \cup \{(x, y_x^{\text{human}}) : x \in S\}$; $\mathcal{U} \leftarrow \mathcal{U} \setminus S$
-  \STATE refit $f$ on $\mathcal{L}$; record test metrics
-\ENDFOR
-\end{algorithmic}
-\end{algorithm}
+\paragraph{Query strategies.} Table~\ref{tab:strategies} lists the five strategies. The
+three modAL strategies measure in different ways how undecided the model is, and treat the
+three classes equally: they can spend labels on images torn between \emph{normal} and
+\emph{benign}, a distinction that does not matter for detecting cancer. Our
+\emph{malignant} strategy asks the question the clinician cares about --- ``is this cancer
+or not?'' --- and queries the images whose probability of being malignant is closest to
+50\%.
 
-\paragraph{Query strategies.} Let $p(c\mid x)$ be the predicted probability of class $c$,
-$c_1,c_2$ the two most probable classes and $m$ the malignant class. We compare five
-strategies, each selecting the images that maximise its score:
-\begin{align}
-\phi_{\mathrm{LC}}(x)  &= 1 - p(c_1\mid x) && \text{(least confidence)}\\
-\phi_{\mathrm{M}}(x)   &= -\big(p(c_1\mid x) - p(c_2\mid x)\big) && \text{(margin)}\\
-\phi_{\mathrm{H}}(x)   &= -\textstyle\sum_{c} p(c\mid x)\log p(c\mid x) && \text{(entropy)}\\
-\phi_{\mathrm{Mal}}(x) &= -\,\big|\,p(m\mid x) - 0.5\,\big| && \text{(malignant)}
-\end{align}
-and \emph{random}, which ignores the model. The first three come from modAL and treat the
-three classes symmetrically, so they can spend labels on images torn between \emph{normal}
-and \emph{benign}, a distinction that does not matter for detecting cancer. The
-\emph{malignant} strategy is ours: it collapses the problem to the question the clinician
-cares about --- ``is this cancer or not?'' --- and queries the images whose probability of
-malignancy is closest to 0.5. Batches are formed by taking the top-$k$ scores, without any
-diversity term.
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{@{}p{0.3\columnwidth}p{0.64\columnwidth}@{}}
+\toprule
+Strategy & Queries the images where\ldots \\
+\midrule
+Random & --- (chosen at random; the baseline) \\
+Least confidence & the most likely class has the lowest probability \\
+Margin & the two most likely classes are closest \\
+Entropy & the probabilities are most evenly spread over the three classes \\
+Malignant (ours) & the probability of \emph{malignant} is closest to 50\% \\
+\bottomrule
+\end{tabular}
+\caption{Query strategies compared. The middle three come from modAL.}
+\label{tab:strategies}
+\end{table}
 
 \paragraph{The human in the loop.} With the \texttt{HUMAN} option on, each selected image is
-displayed in the notebook with the model's suggested class and the annotator types the
-correct class; the classifier is trained with the typed label, even if wrong --- the
-behaviour of a real deployment. Running 100 experiments with a person answering 250 queries
-each is not feasible, so in the quantitative experiments the oracle is simulated with the
-ground-truth label, which corresponds to an always-correct expert~\cite{budd2021survey}.
+shown in the notebook with the model's suggested class and the annotator types the correct
+class; the model is trained with the typed label, even if it is wrong, as in a real
+deployment. Answering 250 queries in each of 100 experiments is not feasible for a person,
+so in the quantitative experiments the human is simulated with the dataset label, which
+corresponds to an expert who never errs~\cite{budd2021survey}.
 
-\subsection{Evaluation}
-On the test set we report accuracy; recall and F1 macro-averaged over the three classes;
-the recall (sensitivity) of the malignant class; and the number of false negatives (FN),
-i.e.\ malignant images predicted as benign or normal. Malignant recall and FN are the
-primary criteria: a false positive leads to more exams, a false negative may delay the
-treatment of a cancer. Passive models are trained with 3 seeds and AL runs are repeated with
-20 seeds; we report mean \spm\ standard deviation. Because all strategies share the initial
-set of each seed, we compare each strategy with random sampling with the two-sided Wilcoxon
-signed-rank test~\cite{wilcoxon1945} over the 20 paired runs, both at fixed numbers of labels
-and on the area under the learning curve (the mean of the metric over the 26 points of the
-curve), which summarises a whole run in one number. We also report the number of labels each
-strategy needs, on average, to reach 95\% of the macro F1 obtained with the whole pool
+\subsection{Evaluation metrics}
+On the test set we report accuracy, macro F1 (the average F1 of the three classes), the
+\textbf{recall of the malignant class} --- the share of cancers that the model detects ---
+and the number of \textbf{false negatives} (FN), malignant images predicted as benign or
+normal. The last two are the most important: a false positive leads to more exams, a false
+negative may delay the treatment of a cancer. To compare an AL strategy with random
+sampling we use the Wilcoxon signed-rank test~\cite{wilcoxon1945} over the 20 paired
+repetitions, at fixed numbers of labels and on the average of each metric over the whole
+learning curve; we call a difference significant when $p<0.05$. We also report how many
+labels each strategy needs to reach 95\% of the macro F1 obtained with the whole pool
 labelled.
 
 % =====================================================================================
 \section{Experiments}
 \label{sec:experiments}
 
-\paragraph{Passive learning.} Both models are trained on the balanced training set
-(1{,}554 images) with mini-batches of 32, at $128\times128$, with seeds 1, 2 and 3
-(\texttt{keras.utils.set\_random\_seed}). Each training run took one and a half to three
-minutes on the GPU. Before fixing these settings we ran a set of preliminary single-seed
-configurations on our first, file-level split, listed in Table~\ref{tab:prelim}.
-
-\paragraph{Active learning.} Table~\ref{tab:params} lists the AL parameters. The pool is
-the 381 training images left with one image per scan; the test set is the same 149 images
-as in passive learning. The full grid --- 5 strategies $\times$ 20 seeds --- is run from
-notebook~02. As reference, the same classifier trained on the whole pool reaches accuracy
-0.779, macro F1 0.754 and malignant recall 0.718 (11 FN of 39), close to the fine-tuned
-MobileNetV2.
+\paragraph{Experiment 1: preliminary configurations.} Before fixing the models, we tried
+several configurations with a single seed (Table~\ref{tab:prelim}). They were run on our
+first, file-level split, before we found the repeated scans. Our first CNN (learning rate
+$0.00001$, 15 epochs, sigmoid in the dense layer) barely learned: for 8 of the 15 epochs it
+predicted \emph{normal} for every validation image, and its test accuracy, 0.36, was below
+that of always answering \emph{benign}. A learning rate of $0.0001$ with early stopping
+made it stop before learning anything; $0.001$ worked, together with ReLU instead of sigmoid.
+Class weights favouring the malignant class did not help consistently, probably because the
+training set is already balanced. For MobileNetV2, fine-tuning beat the frozen network, a
+smaller fine-tuning rate, $224\times224$ images and EfficientNetB0.
 
 \begin{table}[t]
 \centering
-\footnotesize
+\small
 \setlength{\tabcolsep}{4pt}
+\begin{tabular}{lcc}
+\toprule
+Configuration & Acc. & Rec.\,mal. \\
+\midrule
+CNN, lr 0.00001, 15 epochs & 0.36 & 0.55 \\
+CNN, lr 0.0001 + early stop. & 0.17 & 0.00 \\
+CNN, lr 0.001 + early stop.\ (chosen) & 0.76 & 0.67 \\
+CNN, lr 0.001, malignant weight $\times1.5$ & 0.75 & 0.62 \\
+MobileNetV2, fine-tuned (chosen) & 0.85 & 0.86 \\
+MobileNetV2, class weights & 0.87 & 0.83 \\
+MobileNetV2, frozen only (3 seeds) & 0.77 & 0.65 \\
+MobileNetV2, fine-tune lr 0.00001 (3 seeds) & 0.79 & 0.78 \\
+MobileNetV2, $224\times224$ & 0.78 & 0.79 \\
+EfficientNetB0 & 0.78 & 0.71 \\
+\bottomrule
+\end{tabular}
+\caption{Experiment 1: preliminary configurations on our first, file-level split (test set,
+seed 1 unless stated). Because of the leakage these values are optimistic and serve only
+to compare the configurations with each other.}
+\label{tab:prelim}
+\end{table}
+
+\paragraph{Experiment 2: passive learning.} The CNN and MobileNetV2 are trained on the
+balanced training set (1{,}554 images), with mini-batches of 32 and three seeds (1, 2, 3).
+Each run took between one and a half and three minutes on the GPU.
+
+\paragraph{Experiment 3: active learning.} The pool is the 381 training images left with one
+image per scan, and the test set is the same 149 images as in Experiment~2
+(Table~\ref{tab:params}). Each of the 5 strategies is run with 20 seeds, 100 runs in total,
+which take 94 seconds. As reference, the same classifier trained on the whole pool reaches
+accuracy 0.779, macro F1 0.754 and malignant recall 0.718 (11 false negatives of 39), close
+to the fine-tuned MobileNetV2.
+
+\begin{table}[t]
+\centering
+\small
 \begin{tabular}{ll}
 \toprule
 Parameter & Value \\
 \midrule
-Image size & $128\times128$, 1 channel \\
-Features & frozen MobileNetV2, 1{,}280-d \\
+Features & frozen MobileNetV2 (1{,}280) \\
 Classifier & logistic regression, $C=0.01$ \\
-           & balanced class weights \\
 Pool & 381 images, one per scan \\
-Initial labelled set $n_0$ & 20 images, random, stratified \\
-Rounds $Q$, queries per round $k$ & 25, 10 \\
-Strategies & random, least conf., entropy, \\
-           & margin, malignant (ours) \\
-Repetitions & 20 seeds (0--19) \\
-Oracle & simulated (ground truth) \\
+Initial labelled images & 20 (random, all classes) \\
+Images queried per round & 10 \\
+Rounds & 25 (up to 270 labels) \\
+Repetitions & 20 seeds \\
+Human & simulated (dataset label) \\
 \bottomrule
 \end{tabular}
-\caption{Active Learning setup.}
+\caption{Experiment 3: Active Learning setup.}
 \label{tab:params}
 \end{table}
 
@@ -453,24 +443,24 @@ MobileNetV2 & \textbf{.790}\,\spm\,.022 & \textbf{.764}\,\spm\,.030 & \textbf{.6
 MobileNetV2 & .840\,\spm\,.005 & .831\,\spm\,.008 & .802\,\spm\,.049 & 8.3\,\spm\,2.1 \\
 \bottomrule
 \end{tabular}
-\caption{Passive learning on the test set (149 images, 39 malignant), mean \spm\ std over 3
-seeds. Rec.\,mal.: malignant recall; FN: malignant images predicted as benign or normal.
+\caption{Experiment 2: passive learning on the test set (149 images, 39 malignant), mean
+\spm\ standard deviation over 3 seeds. Rec.\,mal.: malignant recall; FN: false negatives.
 Bottom row: same model on our first split (156 test images, 42 malignant), in which copies
 of a scan could fall in both training and test.}
 \label{tab:passive}
 \end{table}
 
-The bottom row of Table~\ref{tab:passive} quantifies the leakage caused by repeated scans.
-On our first split --- by file, after removing only the byte-identical duplicate ---
-MobileNetV2 reached 0.840 accuracy and 0.802 malignant recall; on the grouped split it
-drops to 0.790 and 0.692. Part of the earlier performance came from test images the model
-had, in effect, already seen.
+The bottom row of Table~\ref{tab:passive} shows the effect of the repeated scans. On our
+first split --- by file, after removing only the byte-identical duplicate --- MobileNetV2
+reached 0.840 accuracy and 0.802 malignant recall; on the grouped split it drops to 0.790
+and 0.692. Part of the earlier performance came from test images the model had, in effect,
+already seen.
 
 Figure~\ref{fig:cm} shows the confusion matrices summed over the three seeds. For
 MobileNetV2, almost all missed cancers are predicted as \emph{benign} (33 of 36); for the
 CNN, 24 of 37 go to benign and 13 to normal, and the CNN also confuses many benign images
-with normal (45) and malignant (50) ones. Per class, MobileNetV2 has recall 0.73 (normal),
-0.86 (benign) and 0.69 (malignant), and its precision for the malignant class is 0.74.
+with normal (45) and malignant (50) ones. MobileNetV2's recall is 0.73 for normal, 0.86 for
+benign and 0.69 for malignant images.
 
 \begin{figure}[t]
 \centering
@@ -481,57 +471,26 @@ and row percentages). False negatives are in the \emph{malignant} row, \emph{nor
 \label{fig:cm}
 \end{figure}
 
-Table~\ref{tab:prelim} reports the preliminary configurations. A learning rate of $10^{-4}$
-with early stopping made the CNN stop before it learned anything, $10^{-3}$ worked; class
-weights favouring the malignant class did not help consistently, probably because the
-training set is already balanced; MobileNetV2 without fine-tuning, with a smaller
-fine-tuning rate, at $224\times224$, and EfficientNetB0 were all worse than the chosen
-MobileNetV2 configuration.
-
-\begin{table}[t]
-\centering
-\small
-\begin{tabular}{lcc}
-\toprule
-Configuration & Acc. & Rec.\,mal. \\
-\midrule
-CNN, first settings (lr $10^{-5}$, 15 epochs) & 0.36 & 0.55 \\
-CNN, lr $10^{-4}$ + early stopping & 0.17 & 0.00 \\
-CNN, lr $10^{-3}$ + early stopping & 0.76 & 0.67 \\
-CNN, lr $10^{-3}$, malignant weight $\times1.5$ & 0.75 & 0.62 \\
-MobileNetV2, fine-tuned (chosen) & 0.85 & 0.86 \\
-MobileNetV2, class weights & 0.87 & 0.83 \\
-MobileNetV2, frozen only (3 seeds) & 0.77 & 0.65 \\
-MobileNetV2, fine-tuning lr $10^{-5}$ (3 seeds) & 0.79 & 0.78 \\
-MobileNetV2, $224\times224$ & 0.78 & 0.79 \\
-EfficientNetB0 & 0.78 & 0.71 \\
-\bottomrule
-\end{tabular}
-\caption{Preliminary configurations on our first, file-level split (test set, seed 1
-unless stated). Because of the leakage these values are optimistic and serve only to
-compare the configurations with each other; see also Section~\ref{sec:threats}.}
-\label{tab:prelim}
-\end{table}
-
 \subsection{Active learning}
 Figure~\ref{fig:curves} shows the learning curves and Table~\ref{tab:al} the values at
-selected numbers of labels. In macro F1, no strategy improves on random sampling. Margin
-sampling is the closest to an improvement: at most points between 40 and 160 labels it lies
-slightly above random (by at most 2.2 points, at 60 labels), less than the spread across
-seeds, and the differences are not significant ($p\geq0.45$ at 50, 100 and 150 labels). From about 200 labels on, random sampling is the best strategy,
-and with 270 labels it is significantly better than all four model-driven strategies
-(0.784 against 0.755--0.759, $p\leq0.004$). Over the whole curve
-(Table~\ref{tab:wilcoxon}), margin is indistinguishable from random, while least
-confidence, entropy and our malignant strategy have a significantly lower area under the
-F1 curve. Measured by the labels needed to reach 95\% of the full-pool macro F1 (0.716),
-margin needs 120, random 130, least confidence and malignant 140, and entropy 150.
+selected numbers of labels.
+
+\paragraph{Macro F1.} No strategy improves on random sampling. Margin sampling is the
+closest: at most points between 40 and 160 labels it lies slightly above random (by at
+most 2.2 points), less than the variation across seeds and not significant ($p\geq0.45$ at
+50, 100 and 150 labels). From about 200 labels on, random sampling is the best strategy,
+and with 270 labels it is significantly better than all four others (0.784 against
+0.755--0.759, $p\leq0.004$). Over the whole curve (Table~\ref{tab:wilcoxon}), margin is
+equivalent to random, while least confidence, entropy and our malignant strategy are
+significantly worse. To reach 95\% of the full-pool macro F1, margin needs 120 labels,
+random 130, least confidence and malignant 140, and entropy 150.
 
 \begin{figure*}[t]
 \centering
 \includegraphics[width=\textwidth]{figures/al_learning_curves.pdf}
-\caption{Active Learning learning curves on the test set: mean over 20 seeds, with $\spm1$
-standard deviation shaded for random, margin and malignant. The dotted line is the same
-classifier trained on the whole pool (381 images).}
+\caption{Experiment 3: Active Learning learning curves on the test set, mean over 20 seeds,
+with $\spm1$ standard deviation shaded for random, margin and malignant. The dotted line is
+the same classifier trained on the whole pool (381 images).}
 \label{fig:curves}
 \end{figure*}
 
@@ -559,21 +518,21 @@ Margin       & .542 & .638 & .660 & .692 & .696 & \\
 Malignant    & \textbf{.582} & .632 & .637 & .665 & .695 & \\
 \bottomrule
 \end{tabular}
-\caption{Active Learning on the test set, mean over 20 seeds (standard deviations 0.02--0.08
+\caption{Experiment 3 on the test set, mean over 20 seeds (standard deviations 0.02--0.08
 for F1 and 0.03--0.14 for recall). Last column: labels needed for the mean curve to reach
 95\% of the full-pool macro F1.}
 \label{tab:al}
 \end{table}
 
-In malignant recall, random sampling is again equal or better than every model-driven
+\paragraph{Malignant recall.} Random sampling is again equal or better than every other
 strategy at almost every point of the curve. The gap is largest early: with 100 labels,
-random sampling detects 0.651 of the cancers, least confidence 0.592 ($p=0.012$) and
-entropy 0.563 ($p=0.002$), i.e.\ 13.6 missed cancers out of 39 on average against 15.9 and
-17.0. Our malignant strategy is below random from 60 labels on, significantly so at 150
-and 200 labels ($p=0.013$ and $0.007$). With 270 labels all strategies converge to a
-malignant recall of about 0.70, with no significant differences. Over the whole curve, least
-confidence and entropy have a significantly lower area under the recall curve, while margin
-and malignant are lower but not significantly (Table~\ref{tab:wilcoxon}).
+random sampling detects 65.1\% of the cancers, least confidence 59.2\% ($p=0.012$) and
+entropy 56.3\% ($p=0.002$) --- on average 13.6 missed cancers out of 39, against 15.9 and
+17.0. Our malignant strategy is below random from 60 labels on, significantly at 150 and
+200 labels ($p=0.013$ and $0.007$). With 270 labels all strategies converge to a malignant
+recall of about 0.70. Over the whole curve, least confidence and entropy are significantly
+worse than random, while margin and malignant are lower but not significantly
+(Table~\ref{tab:wilcoxon}).
 
 \begin{table}[t]
 \centering
@@ -582,7 +541,7 @@ and malignant are lower but not significantly (Table~\ref{tab:wilcoxon}).
 \begin{tabular}{lcccc}
 \toprule
 & \multicolumn{2}{c}{Macro F1} & \multicolumn{2}{c}{Malignant recall} \\
-Strategy & $\Delta$ & $p$ & $\Delta$ & $p$ \\
+Strategy & Diff. & $p$ & Diff. & $p$ \\
 \midrule
 Least conf. & $-0.012$ & 0.017 & $-0.024$ & 0.017 \\
 Entropy     & $-0.019$ & 0.002 & $-0.040$ & 0.002 \\
@@ -590,19 +549,19 @@ Margin      & $-0.005$ & 0.25  & $-0.015$ & 0.28 \\
 Malignant   & $-0.016$ & 0.024 & $-0.026$ & 0.076 \\
 \bottomrule
 \end{tabular}
-\caption{Difference to random sampling in the area under the learning curve (mean of the
-metric over 20--270 labels), averaged over 20 paired seeds, with the two-sided Wilcoxon
-signed-rank $p$-value. Random's areas are 0.707 (F1) and 0.656 (recall).}
+\caption{Difference to random sampling in the average of each metric over the whole
+learning curve (20--270 labels), mean of 20 paired seeds, with the Wilcoxon $p$-value.
+Random's averages are 0.707 (F1) and 0.656 (recall).}
 \label{tab:wilcoxon}
 \end{table}
 
-Which images do the strategies ask for? Over all seeds, random queries follow the pool
-(16\% normal, 53\% benign, 31\% malignant). Least confidence, entropy and margin ask for
-more normal images (20--21\%), fewer benign ones (48\%) and about as many malignant ones
-(32\%); the malignant strategy asks for the most malignant images (38\%). We also tried,
-outside the reported grid, querying one image per round instead of ten, and modAL's
-uncertainty-with-diversity batch strategy; both stayed within about one F1 point of
-random sampling.
+\paragraph{Queried images.} Over all seeds, random queries follow the pool (16\% normal,
+53\% benign, 31\% malignant). Least confidence, entropy and margin ask for more normal
+images (20--21\%), fewer benign ones (48\%) and about as many malignant ones (32\%); the
+malignant strategy asks for the most malignant images (38\%). We also tried, outside the
+reported runs, querying one image per round instead of ten, and modAL's strategy that
+combines uncertainty with diversity; both stayed within about one F1 point of random
+sampling.
 
 % =====================================================================================
 \section{Discussion}
@@ -612,143 +571,109 @@ random sampling.
 On our first, file-level split, the same AL protocol suggested that margin sampling reached
 95\% of the full-pool F1 with 190 labels against 250 for random sampling --- ``24\% fewer
 labels'' --- and the fine-tuned network reached 0.840 accuracy. Both results were
-artefacts of repeated scans: once copies of a scan are kept in the same set and the pool
-holds one image per scan, the accuracy drops by five points and the AL advantage
-disappears. Repeated scans are not documented in the dataset description and are found
-only by comparing the images; a byte-level check finds just one.
-
-Two mechanisms plausibly explain the inflation, although we did not measure them
-separately. First, when copies of a scan fall in both training and test, part of the test
-set is no longer unseen: a model that has fitted the training copy predicts the test copy
-almost for free. This favours high-capacity models that can memorise individual images,
-such as a fine-tuned network that reaches a training accuracy close to 1.00. Second, in
-the file-level AL pool about a fifth of the files (179 of 780) are extra copies of a scan.
-Random sampling spends some of its labels on copies of scans that are already labelled,
-which add almost no information. Uncertainty-based strategies avoid them, because the model
-is already confident on an image whose copy it has been trained on. Part of the apparent
-AL saving may therefore come from avoiding duplicates rather than from finding informative
-images; with one image per scan in the pool, random sampling no longer wastes labels this
-way and the gap closes. In this sense, the leakage made AL look better because it made
-random sampling look worse. This shows how fragile
-reported AL gains are, and it is consistent with the large spread of accuracies reported
-on BUSI (Section~\ref{sec:related}). An underfitted passive baseline, an AL model trained
-for more epochs than the passive one, or a large initial labelled set with few queries
-would likewise make AL look better than it is. The 57--60\% reductions found in tabular
-data~\cite{faria2022joint} do not carry over to our setting, which suggests that the
+artefacts of repeated scans, which are not documented in the dataset description and are
+found only by comparing the images. Two mechanisms plausibly explain the inflation,
+although we did not measure them separately. First, when copies of a scan fall in both
+training and test, a model that has fitted the training copy predicts the test copy almost
+for free; this favours models that can memorise individual images, such as a fine-tuned
+network with a training accuracy close to 1.00. Second, in the file-level pool about a
+fifth of the files (179 of 780) are extra copies of a scan. Random sampling spends some of
+its labels on copies of scans that are already labelled, which add almost no information,
+whereas uncertainty-based strategies avoid them, because the model is already confident on
+an image whose copy it has seen. The leakage made AL look better because it made random
+sampling look worse. This shows how fragile reported AL gains are: the 57--60\% reductions
+found in tabular data~\cite{faria2022joint} do not carry over to our setting, and the
 benefit of AL depends strongly on the data, the model and the evaluation protocol.
 
 \paragraph{Why does uncertainty not help here?}
-We see three plausible reasons, which our experiments do not separate. (i)~Pre-trained
+We see three plausible reasons, which our experiments do not separate. (i)~The pre-trained
 features already separate the classes reasonably well, so a random sample of a few dozen
 images is already informative: random sampling with 270 labels (0.784) even exceeds the
-classifier trained on all 381 pool images (0.754), a reminder that differences of a few
-points are within the variability due to \emph{which} images are labelled. (ii)~The images
-on which the model is most uncertain are often the most ambiguous, and in BUSI ambiguous
-images are also the most likely to be mislabelled --- the dataset contains the same scan
-under contradictory labels. Concentrating the labelling budget on them gives the classifier
-a biased, noisy training set, which may explain why the uncertainty-based strategies fall
-behind random as the budget grows. (iii)~With 381 images in the pool, there is little room
-to choose: at 270 labels, 71\% of the pool is labelled by any strategy.
+classifier trained on all 381 pool images (0.754), so differences of a few points are
+within the variation due to \emph{which} images are labelled. (ii)~The images on which the
+model is most uncertain are often the most ambiguous, and ambiguous images are also the
+most likely to be mislabelled --- BUSI contains the same scan under contradictory labels.
+Concentrating the labels on them gives the classifier a biased, noisy training set.
+(iii)~With 381 images in the pool, there is little room to choose: at 270 labels, 71\% of
+the pool is labelled by any strategy.
 
 \paragraph{Uncertainty is not risk.}
-The classic strategies treat the three classes symmetrically and spend part of the budget
-on images torn between \emph{normal} and \emph{benign}: they ask for about a quarter more
-normal images than random sampling, and least confidence and entropy detect significantly fewer
-cancers in the first hundred queries. In a screening tool this is the wrong trade-off: the
-model becomes uncertain where the error is cheap. Our malignant strategy addresses this by
-asking whether an image is cancer, and indeed sends the human the most malignant images,
-but it does not detect more cancers either; asking about \emph{more} cancers is not the same
-as learning to detect them, perhaps because the images near $p(m\mid x)=0.5$ are again the
-most ambiguous ones. Risk-aware strategies that weight uncertainty by the cost of each
-error, and that account for label noise and diversity, remain to be shown useful; a simple
+The classic strategies treat the three classes equally and spend part of the budget on
+images torn between \emph{normal} and \emph{benign}: they ask for about a quarter more
+normal images than random sampling, and least confidence and entropy detect significantly
+fewer cancers in the first hundred queries. In a screening tool this is the wrong
+trade-off: the model asks where an error is cheap. Our malignant strategy sends the human
+the most malignant images, but it does not detect more cancers either; asking about
+\emph{more} cancers is not the same as learning to detect them, perhaps because the images
+closest to a 50\% probability of malignancy are again the most ambiguous ones. A simple
 random baseline is hard to beat.
 
 \paragraph{The role of the human.}
-The simulated oracle never errs. A real annotator can be tired, inexperienced or influenced
+The simulated human never errs. A real annotator can be tired, inexperienced or influenced
 by the model's suggestion, which we display to make labelling faster; if they accept a wrong
 suggestion, the model learns its own mistake (automation bias~\cite{goddard2012automation}).
-This matters more in AL than in passive labelling, because AL deliberately sends the human
-the \emph{hardest} images, those on which experts are also more likely to disagree --- the
-contradictory labels in BUSI show that this happens even in a curated dataset. Hiding the
-suggestion until the human answers, asking for a confidence level, and showing a Grad-CAM
-explanation~\cite{selvaraju2017gradcam} so that the expert can judge whether the model
-looked at the lesion or at caliper marks are design choices that keep the human in control
-rather than turning them into a rubber stamp. Even the best passive model misses 12 of 39
-cancers on the test set on average; the system can support, but not replace, the
-clinician.
+This matters more in AL than in ordinary labelling, because AL deliberately sends the human
+the \emph{hardest} images, on which experts are also more likely to disagree --- the
+contradictory labels in BUSI show that this happens even in a public dataset. Hiding the
+suggestion until the human answers, asking for a confidence level, or showing where the
+model looked would keep the human in control rather than turning them into a rubber stamp.
+Even the best passive model misses 12 of 39 cancers on average; the system can support, but
+not replace, the clinician.
 
-\subsection{Threats to validity}
-\label{sec:threats}
-\emph{Small evaluation sets.} The test set has 149 images (39 malignant); one false negative
-changes malignant recall by 2.6 points. We mitigate this with repeated runs and paired tests,
-but all runs share one data split; repeated or cross-validated splits would also capture
-split variance. The validation set (127 images) is small and noisy.
-\emph{Duplicate detection.} The 0.95 correlation threshold at $32\times32$ was set by hand; a looser threshold could merge different scans and a stricter one
-could miss copies with different crops.
-\emph{Test-set use in preliminary experiments.} The configurations of
-Table~\ref{tab:prelim} were compared on test accuracy (of the first split), so the choice of
-MobileNetV2 with fine-tuning and of the learning rates is partly informed by test data.
-Within the AL experiments, $C$ was chosen on validation, and no AL configuration was
-selected using the test set.
-\emph{Different models for passive and active learning.} For speed, AL uses a linear
-classifier on frozen features, not the fine-tuned network; its full-pool accuracy (0.779)
-is close to the fine-tuned network's (0.790), but conclusions about the strategies may not
-transfer unchanged to a fine-tuned model.
-\emph{Augmentation.} Rotations of 90$^\circ$ and 180$^\circ$ yield images a scanner never
-produces (the skin is always at the top); more realistic transformations could help the
-passive models.
-\emph{Multiple comparisons.} Table~\ref{tab:wilcoxon} reports eight tests; after a
-Bonferroni correction ($p<0.00625$) only the differences of entropy sampling remain
-significant.
-\emph{Simulated oracle} and \emph{no diversity in the reported batches}, as discussed above.
+\paragraph{Limitations.}
+The test set is small (149 images, 39 malignant): one false negative changes malignant
+recall by 2.6 points, and all runs share one data split. The 0.95 threshold for repeated
+scans was set by hand. The preliminary configurations (Table~\ref{tab:prelim}) were compared
+on the test set of the first split, so the model choice is partly informed by test data;
+within the AL experiments, no choice used the test set. AL uses a linear classifier on
+frozen features rather than the fine-tuned network, so its conclusions may not transfer
+unchanged to a fine-tuned model. Rotations of 90$^\circ$ and 180$^\circ$ produce images a
+scanner never produces. Finally, with eight tests in Table~\ref{tab:wilcoxon}, a stricter
+(Bonferroni) correction leaves only the differences of entropy sampling significant.
 
 % =====================================================================================
-\section{Conclusions and Future Work}
+\section{Conclusion}
 \label{sec:conclusions}
 
 We studied human-in-the-loop Active Learning for breast ultrasound classification. The
 BUSI dataset stores many scans more than once; splitting by scan lowered the test accuracy
 of a fine-tuned MobileNetV2 from 0.840 to 0.790 (malignant recall 0.69) and removed an
-apparent 24\% AL label saving. With a fair AL protocol --- grouped split, small seed set,
+apparent 24\% AL label saving. With a fair protocol --- grouped split, small initial set,
 random baseline, paired repetitions --- no query strategy beat random sampling: margin
 sampling was equivalent to it, the others were significantly worse in macro F1, and least
 confidence and entropy also detected significantly fewer cancers early in the process. A
 malignancy-focused strategy asked the expert about more cancers but did not detect more of
 them. The main difficulties were the limited memory of our hardware, which forced a smaller
-image size and a feature-based AL model, and the small, noisy dataset, which makes
-differences between strategies hard to separate from noise.
+image size and a feature-based AL model, and the small, noisy dataset.
 
 \paragraph{Relation to Human-Centered AI.}
 \emph{Human-in-the-loop}: the expert is consulted where the model selects, keeps the final
 authority over each label, and the model learns from the expert's answer; our results show
 that \emph{which} questions the model asks the human matters, and that ``where the model is
 unsure'' is not automatically a good answer. \emph{Values and evaluation}: measuring only
-accuracy or macro F1 would have hidden that some strategies miss more cancers; choosing the
-metric according to the patient's interest is part of the design. \emph{Trust}: reporting
-what the system cannot do --- missed cancers, leakage that inflated our own first results,
-the absence of a label saving --- is a prerequisite for a clinician to rely on it or
-overrule it~\cite{shneiderman2020hcai}.
+accuracy or macro F1 would have hidden that some strategies miss more cancers.
+\emph{Trust}: reporting what the system cannot do --- missed cancers, leakage that inflated
+our own first results, the absence of a label saving --- is a prerequisite for a clinician
+to rely on it or overrule it~\cite{shneiderman2020hcai}.
 
 \paragraph{Future work.}
-(i)~Risk-aware and diversity-aware query strategies~\cite{sener2018coreset} that also model
-label noise; (ii)~Grad-CAM explanations shown with each query, evaluated against the lesion
-masks of the dataset with IoU or Dice; (iii)~a patient-facing agent prototype, in a
-notebook, that presents the prediction and its explanation and answers questions about the
-disease through retrieval-augmented generation~\cite{lewis2020rag} over trusted sources such
-as~\cite{lpcc}, with a clear statement that it is not a diagnosis; (iv)~AL with the
-fine-tuned network and repeated grouped splits; and (v)~a study with clinicians measuring
-labelling time, agreement and the effect of showing the model's suggestion. \todo{move (ii)
-and (iii) into the main text if implemented before submission}.
+(i)~Query strategies that weigh uncertainty by the cost of each error and avoid redundant
+images~\cite{sener2018coreset}; (ii)~Grad-CAM~\cite{selvaraju2017gradcam} explanations
+shown with each query, so the expert can see whether the model looked at the lesion;
+(iii)~a patient-facing agent prototype, in a notebook, that presents the prediction and
+answers questions about the disease from trusted sources~\cite{lewis2020rag,lpcc}, stating
+clearly that it is not a diagnosis; (iv)~AL with the fine-tuned network and repeated
+grouped splits; and (v)~a study with clinicians measuring labelling time and the effect of
+showing the model's suggestion. \todo{move (ii) and (iii) into the main text if implemented
+before submission}.
 
 % =====================================================================================
 \section*{Reproducibility}
 The repository (\url{https://github.com/httpirsh/miacd-iach-breast-cancer-diagnosis})
 contains the code (\texttt{src/}), the notebooks with their saved outputs, a
 \texttt{requirements.txt} and a README with instructions to obtain the dataset and run the
-notebooks in order. All parameters are set in the first cells of each notebook; metrics are
-saved to \texttt{results/}, the figures of this paper are generated from them by
-\texttt{report/figures/make\_figures.py}, and the \LaTeX{} sources are in
-\texttt{report/}.
+notebooks in order. Metrics are saved to \texttt{results/}, and the figures of this paper
+are generated from them by \texttt{report/figures/make\_figures.py}.
 
 %% \section*{Contribution Statement}
 %% \todo{who did what, if required}
