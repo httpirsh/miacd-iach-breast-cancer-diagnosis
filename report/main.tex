@@ -353,8 +353,9 @@ $0.00001$, 15 epochs, sigmoid in the dense layer) barely learned: for 8 of the 1
 predicted \emph{normal} for every validation image, and its test accuracy, 0.36, was below
 that of always answering \emph{benign}. A learning rate of $0.0001$ with early stopping
 made it stop before learning anything; $0.001$ worked, together with ReLU instead of sigmoid.
-Class weights favouring the malignant class did not help consistently, probably because the
-training set is already balanced. For MobileNetV2, fine-tuning beat the frozen network, a
+Weighting malignant errors $1.5\times$ in the loss did not help: over three seeds,
+MobileNetV2 reached a malignant recall of 0.73 with the weights and 0.78 without, probably
+because the training set is already balanced. For MobileNetV2, fine-tuning beat the frozen network, a
 smaller fine-tuning rate, $224\times224$ images and EfficientNetB0.
 
 \begin{table}[t]
@@ -368,9 +369,7 @@ Configuration & Acc. & Rec.\,mal. \\
 CNN, lr 0.00001, 15 epochs & 0.36 & 0.55 \\
 CNN, lr 0.0001 + early stop. & 0.17 & 0.00 \\
 CNN, lr 0.001 + early stop.\ (chosen) & 0.76 & 0.67 \\
-CNN, lr 0.001, malignant weight $\times1.5$ & 0.75 & 0.62 \\
 MobileNetV2, fine-tuned (chosen) & 0.85 & 0.86 \\
-MobileNetV2, class weights & 0.87 & 0.83 \\
 MobileNetV2, frozen only (3 seeds) & 0.77 & 0.65 \\
 MobileNetV2, fine-tune lr 0.00001 (3 seeds) & 0.79 & 0.78 \\
 MobileNetV2, $224\times224$ & 0.78 & 0.79 \\
