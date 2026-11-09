@@ -113,16 +113,17 @@ case, keeping the clinician in the loop for suspicious cases and on the loop for
 and answers the patient's questions from trusted documents.
 \end{enumerate}
 
-The main findings are negative and, we argue, important for human-centred AI. Repeated
-scans were enough to make AL look useful: on our first, file-level split the strategies
-appeared to need 24\% fewer labels than random sampling. On the grouped split this
-advantage vanishes, and random sampling does better than every strategy in most of our
-repetitions. The
-project connects to four course topics. The clinician is an active participant whose
-answers steer learning, rather than fully automated learning~\cite{hcai_slides_hitl}. The
-evaluation follows human values, namely the cost of missing a cancer. Trust is built on
-honest reporting of what the system cannot do. And explanations and the agent keep the
-clinician in charge of the decisions that matter.
+Our main contributions are:
+\begin{itemize}
+\item \textbf{Hidden leakage in a public dataset.} BUSI stores many scans more than once.
+Splitting by scan instead of by file removes an apparent AL label saving.
+\item \textbf{Uncertainty is not risk.} On a leakage-free split, no query strategy beats
+random sampling, and the classic strategies ask the expert about images where an error is
+cheap.
+\item \textbf{An agent that keeps the clinician in control.} Grad-CAM shows that the model
+also misses cancers it looked at, often with high confidence. The agent keeps the clinician
+in the loop for suspicious cases and on the loop for the rest.
+\end{itemize}
 
 % =====================================================================================
 \section{Related Work}
@@ -232,13 +233,11 @@ An expert labels real images, and asking for the label of a rotated copy, or of 
 file of an already-labelled scan, would waste their time.
 
 \subsection{Tools}
-The project is written in Python~3.11. We use TensorFlow/Keras~2.21 for the neural
-networks, scikit-learn~1.7 for data splitting, the AL classifier and the metrics,
-and modAL~0.4.2 for the query strategies~\cite{danka2018modal}. The agent uses fastembed for sentence embeddings and the IAedu platform, which FCT
-provides to Portuguese higher education, for the language model~\cite{iaedu}. Shared code
-lives in a \texttt{src/} package, and the experiments run from five Jupyter notebooks (data
-exploration, passive learning, active learning, explainability and agent). Everything runs
-locally on a laptop with an NVIDIA GeForce RTX~3050 GPU (4\,GB) and 13\,GB of RAM.
+The project is written in Python with TensorFlow/Keras, scikit-learn and modAL, the AL
+library that provides the query strategies~\cite{danka2018modal}. The chatbot uses fastembed
+for sentence embeddings and the IAedu platform, which FCT provides to Portuguese higher
+education, for the language model~\cite{iaedu}. The experiments run from five Jupyter
+notebooks on a laptop with a 4\,GB NVIDIA RTX~3050 GPU and 13\,GB of RAM.
 
 % =====================================================================================
 \section{Methods}
@@ -252,13 +251,9 @@ instead of 367\,MB, and MobileNetV2 did not perform better at $224\times224$.
 
 \subsection{Passive learning models}
 \paragraph{CNN trained from scratch.}
-Four convolutional blocks with 32, 64, 128 and 32 filters of size $4\times4$, each with
-ReLU, batch normalisation and max pooling. Dropout of 0.3 follows
-the second and third blocks, and then a 32-unit dense layer and
-a softmax output with one probability per class. It is trained with Adam and a learning
-rate of $0.001$. Early stopping ends training when the validation loss
-has not improved for 10 epochs (at most 60), and the best weights are
-kept.
+A small CNN with four convolutional blocks, dropout and a dense layer, trained with Adam
+(learning rate $0.001$). Training stops when the validation loss has not improved for 10
+epochs, and the best weights are kept (early stopping).
 
 \paragraph{MobileNetV2 with transfer learning.}
 With fewer than 400 distinct training scans, learning visual features from scratch is hard.
@@ -435,13 +430,10 @@ Experiment~3. The chatbot is checked with example questions from a patient.
 \label{sec:results}
 
 \subsection{Passive learning}
-Table~\ref{tab:passive} shows the test results. MobileNetV2 with fine-tuning is the best
-model, with accuracy 0.804. The CNN trained from scratch reaches 0.609, and its accuracy
-ranges from 0.55 to 0.71 depending on the seed. In malignant
-recall the two models are close (0.697 and 0.718), but the CNN gets there by calling many
-benign and normal images malignant. MobileNetV2 misses between 10 and 15 of the 39 cancers,
-depending on the seed. Both models overfit. Their final training accuracy is 0.96--0.98 for
-the CNN and 1.00 for MobileNetV2, against validation accuracies of at most 0.78 and 0.86.
+\textbf{MobileNetV2 is the best model} (Table~\ref{tab:passive}), with accuracy 0.804 against
+0.609 for the CNN. The CNN reaches a similar malignant recall only by calling many benign
+and normal images malignant. Even MobileNetV2 misses 10 to 15 of the 39 cancers, depending
+on the seed. Both models overfit: their training accuracy is close to 1.
 
 \begin{table}[t]
 \centering
@@ -465,17 +457,10 @@ of a scan could fall in both training and test.}
 \label{tab:passive}
 \end{table}
 
-The bottom row of Table~\ref{tab:passive} shows the effect of the repeated scans. On our
-first split, by file and after removing only the byte-identical duplicate, MobileNetV2
-reached 0.840 accuracy and 0.802 malignant recall. On the grouped split it drops to 0.804
-and 0.697. Part of the earlier performance came from test images the model had, in effect,
-already seen.
-
-Figure~\ref{fig:cm} shows the confusion matrices summed over the five seeds. For
-MobileNetV2, most missed cancers are predicted as \emph{benign} (50 of 59). For the CNN, 40
-of 55 go to benign and 15 to normal, and the CNN also confuses many benign images with
-normal (80) and malignant (98) ones. MobileNetV2's recall is 0.79 for normal, 0.86 for
-benign and 0.70 for malignant images.
+\textbf{Repeated scans inflated our first results.} On our first split, by file,
+MobileNetV2 reached 0.840 accuracy and 0.802 malignant recall (bottom row of
+Table~\ref{tab:passive}). Part of that came from test images the model had, in effect,
+already seen. Most missed cancers are predicted as \emph{benign} (Figure~\ref{fig:cm}).
 
 \begin{figure}[t]
 \centering
@@ -490,12 +475,10 @@ and row percentages). False negatives are in the \emph{malignant} row, \emph{nor
 Figure~\ref{fig:curves} shows the learning curves, Table~\ref{tab:al} the values at selected
 numbers of labels, and Table~\ref{tab:wins} how often random sampling beats each strategy.
 
-\paragraph{Accuracy.} No strategy improves on random sampling. Margin and our malignant
-strategy are level with random up to about 200 labels, at most 0.7 points above it at some
-points, which is well within the variation across seeds. With 270 labels random sampling is
-the best strategy (0.805 against 0.783--0.788). Averaged over the whole curve, random sampling
-scores higher than least confidence in 16 of the 20 repetitions, and higher than margin and
-malignant in 14.
+\paragraph{No strategy beats random sampling.} In accuracy, margin and malignant are level
+with random sampling up to about 200 labels, and below it at 270 labels (0.783--0.788
+against 0.805). Over the whole curve, random sampling scores higher in 14 to 16 of the 20
+repetitions.
 
 \begin{figure*}[t]
 \centering
@@ -533,13 +516,10 @@ for accuracy and 0.03--0.11 for recall).}
 \label{tab:al}
 \end{table}
 
-\paragraph{Malignant recall.} From 70 labels on, random sampling is equal to or better than
-every other strategy at almost every point of the curve. Only margin sampling is slightly
-above it in the first 60 labels. The gap is largest early. With 100 labels, random sampling
-detects 65.1\% of the cancers and least confidence 57.8\%: on average 13.6 missed cancers out
-of 39, against 16.5. With 270 labels all strategies converge to a malignant recall of about
-0.70. Over the whole curve, random sampling detects more cancers than the other strategies in
-12 or 13 of the 20 repetitions.
+\paragraph{Least confidence detects fewer cancers early.} With 100 labels, random sampling
+detects 65.1\% of the cancers and least confidence 57.8\%. With 270 labels all strategies
+reach a malignant recall of about 0.70. Over the whole curve the differences in malignant
+recall are small: random sampling is higher in 12 or 13 of the 20 repetitions.
 
 \begin{table}[t]
 \centering
@@ -559,21 +539,21 @@ about 10 of 20.}
 \label{tab:wins}
 \end{table}
 
-\paragraph{Queried images.} Over all seeds, random queries follow the pool (16\% normal,
-53\% benign, 31\% malignant). Least confidence and margin ask for more normal
-images (20--21\%), fewer benign ones (48\%) and about as many malignant ones (32\%). The
-malignant strategy asks for the most malignant images (38\%).
+\paragraph{Queried images.} Least confidence and margin ask for more normal images than
+random sampling (20--21\% against 16\%); our malignant strategy asks for the most malignant
+ones (38\% against 31\%).
 
 \subsection{Explainability}
-When the model detects a cancer it mostly looks at the lesion (Figure~\ref{fig:gradcam},
-top, and Table~\ref{tab:gradcam}). On average, 35\% of the map's mass falls inside lesions
-that cover 18\% of the image, about twice what a map that ignored the image would obtain.
-The ten missed cancers are of two kinds (Figure~\ref{fig:gradcam}, bottom). In some, the map
-covers the lesion and the model still calls it benign; these are large, oval lesions with
+\textbf{When the model detects a cancer, it mostly looks at the lesion}
+(Figure~\ref{fig:gradcam}, top, and Table~\ref{tab:gradcam}). On average, 35\% of the map
+falls inside lesions that cover 18\% of the image: about twice what a map that ignored the
+image would obtain. The maps are coarse, though. They show the region the model used, not
+the lesion margin that separates benign from malignant.
+
+\textbf{Missed cancers are of two kinds} (Figure~\ref{fig:gradcam}, bottom). In some, the map
+covers the lesion and the model still calls it benign. These are large, oval lesions with
 smooth margins, which look benign. In others, mostly small lesions, the map lies on the
-tissue beside or above the lesion. The maps are coarse: even for detected cancers, about two
-thirds of the map lies outside the lesion. They show the region the model used, not the
-lesion margin that separates benign from malignant.
+tissue beside or above the lesion.
 
 \begin{figure*}[t]
 \centering
@@ -606,21 +586,19 @@ image covered by the lesion, which a map that ignores the image would also obtai
 \label{tab:gradcam}
 \end{table}
 
-The model is often confident when it is wrong. Three of the ten missed cancers are predicted
+\textbf{The model is often confident when it is wrong.} Three of the ten missed cancers are predicted
 benign with a probability of at least 97\%, and nine of them receive a malignancy
 probability below 25\%. The model's confidence alone is therefore not enough to
 decide which cases a clinician must see.
 
 \subsection{Agent prototype}
-On the validation set, the referral rule reaches its target with $\tau=0.88$: 36 of the 37
-malignant images reach the clinician, who sees 56\% of the cases. On the test set the rule
-behaves similarly (Table~\ref{tab:agent}). The clinician sees 82 of the 149 images (55\%),
-and 36 of the 39 cancers reach them: the 29 the model detects and 7 of the 10 it misses.
-The other 67 images are decided without the clinician, and 8 of these decisions are wrong.
-Five benign images are called normal, and three cancers are called benign with a confidence
-of 97--99\%. These three are the cases the clinician's review of the log has to catch,
-which is why the automatic decisions stay under Human-on-the-Loop supervision rather than
-being final.
+\textbf{The referral rule sends 36 of the 39 cancers to the clinician}
+(Table~\ref{tab:agent}). The threshold chosen on validation is $\tau=0.88$. On the test set
+the clinician sees 82 of the 149 images (55\%), including the 29 cancers the model detects
+and 7 of the 10 it misses. The other 67 images are decided automatically, and 8 of these
+decisions are wrong: five benign images called normal, and three cancers called benign with
+97--99\% confidence. Catching these three is the job of the clinician's review of the log
+(Human-on-the-Loop).
 
 \begin{table}[t]
 \centering
@@ -640,7 +618,8 @@ goes to the clinician if the model predicts malignant or its confidence is below
 \label{tab:agent}
 \end{table}
 
-In early tests of the chatbot with two placeholder documents, the answers were in plain
+\textbf{The chatbot needed an explicit rule against false reassurance.} In early tests with
+two placeholder documents, the answers were in plain
 language, cited the excerpts and refused to suggest medication. The first version of the
 rules, however, answered ``No.'' to ``Does this mean I have cancer?'' when the model had
 predicted benign with 99\% confidence. That is false reassurance, since the model misses
@@ -654,77 +633,60 @@ with the medical documents and the test questions, once available.}
 \label{sec:discussion}
 
 \paragraph{Leakage creates the illusion of a benefit.}
-On our first, file-level split, the same AL protocol suggested that margin sampling needed
-190 labels, against 250 for random sampling, to come close to the result with the whole pool
-labelled (``24\% fewer labels''), and the fine-tuned network reached 0.840 accuracy. Both results were artefacts
-of repeated scans. The repeats are not documented in the dataset description and are found
-only by comparing the images. Two mechanisms plausibly explain the inflation, although we
-did not measure them separately. First, when copies of a scan fall in both training and
-test, a model that has fitted the training copy predicts the test copy almost for free.
-This favours models that can memorise individual images, such as a fine-tuned network with
-a training accuracy close to 1.00. Second, about a fifth of the files in the file-level pool
-(179 of 780) are extra copies of a scan. Random sampling spends some of its labels on copies
-of scans that are already labelled, which add almost no information. Uncertainty-based
-strategies avoid them, because the model is already confident on an image whose copy it has
-seen. The leakage made AL look better because it made random sampling look worse. Reported
-AL gains are therefore fragile: the 57--60\% reductions found in tabular
-data~\cite{faria2022joint} do not carry over to our setting, and the benefit of AL depends
-strongly on the data, the model and the evaluation protocol.
+On the file-level split, margin sampling needed 190 labels, against 250 for random
+sampling, to come close to the result with the whole pool labelled (``24\% fewer labels'').
+A plausible reason is that about a fifth of the files are extra copies of a scan. Random
+sampling spends labels on copies of scans already labelled, which add almost no
+information, while uncertainty-based strategies avoid them. The leakage made AL look better
+by making random sampling look worse. Reported AL gains are therefore fragile: the
+57--60\% reductions found on tabular data~\cite{faria2022joint} do not carry over to our
+setting.
+
+\paragraph{Why random sampling is hard to beat.}
+We see three plausible reasons, which our experiments do not separate. (i)~The pre-trained
+features already separate the classes reasonably well, so a random sample of a few dozen
+images is already informative. Random sampling with 270 labels (accuracy 0.805) even
+exceeds the classifier trained on all 381 pool images (0.785). (ii)~The images on which the
+model is most uncertain are often the most ambiguous. Ambiguous images are also the most
+likely to be mislabelled: BUSI contains the same scan under contradictory labels.
+(iii)~With 381 images in the pool, there is little room to choose. At 270 labels, 71\% of
+the pool is labelled by any strategy.
 
 \paragraph{Uncertainty is not risk.}
-Random sampling is hard to beat here. We see three plausible reasons, which our experiments
-do not separate. (i)~The pre-trained features already separate the classes reasonably
-well, so a random sample of a few dozen images is already informative. Random sampling with
-270 labels (accuracy 0.805) even exceeds the classifier trained on all 381 pool images
-(0.785), so differences of a few points are within the variation due to \emph{which} images
-are labelled. (ii)~The images on which the model is most uncertain are often the most
-ambiguous, and ambiguous images are also the most likely to be mislabelled: BUSI contains
-the same scan under contradictory labels. (iii)~With 381 images in the pool, there is little
-room to choose. At 270 labels, 71\% of the pool is labelled by any strategy.
-The classic strategies also treat the three classes equally and spend part of the budget on
-images torn between \emph{normal} and \emph{benign}. They ask for about a quarter more
-normal images than random sampling, and least confidence detects fewer cancers in the first
-hundred labels (57.8\% against 65.1\% at 100 labels). In a screening tool this is the wrong
-trade-off: the model asks where an error is cheap. Our malignant strategy sends the human
-the most malignant images, but it does not detect more cancers either. Asking about
-\emph{more} cancers is not the same as learning to detect them, perhaps because the images
-closest to a 50\% probability of malignancy are again the most ambiguous ones.
+The classic strategies treat the three classes equally. They spend part of the budget on
+images torn between \emph{normal} and \emph{benign}, where an error is cheap, and least
+confidence detects fewer cancers early on. In a screening tool this is the wrong trade-off.
+Our malignant strategy asks about more cancers, but does not detect more of them, perhaps
+because the images closest to a 50\% probability of malignancy are again the most ambiguous
+ones.
 
-\paragraph{The role of the human.}
-The simulated human never errs. A real annotator can be tired, inexperienced or influenced
-by the model's suggestion, which we display to make labelling faster. If they accept a
-wrong suggestion, the model learns its own mistake~\cite{goddard2012automation}. This
-matters more in AL than in ordinary labelling, because AL deliberately sends the human the
-\emph{hardest} images, on which experts are also more likely to disagree. The contradictory
-labels in BUSI show that this happens even in a public dataset. Hiding the suggestion until
-the human answers, asking for a confidence level, or showing where the model looked would
-keep the human in control rather than turning them into a rubber stamp. Even the best
-passive model misses 12 of 39 cancers on average, so the system can support the clinician
-but not replace them.
+\paragraph{A real annotator is not a perfect expert.}
+Our simulated human never errs. A real one can be tired, inexperienced or influenced by the
+model's suggestion, which we display to make labelling faster. If they accept a wrong
+suggestion, the model learns its own mistake~\cite{goddard2012automation}. This matters more
+in AL than in ordinary labelling, because AL sends the human the \emph{hardest} images, on
+which experts also disagree more often. Hiding the suggestion until the human answers,
+asking for a confidence level, or showing where the model looked would keep the human in
+control rather than turning them into a rubber stamp. And since even the best model misses 10 to 15 of the
+39 cancers, the system can support the clinician but not replace them.
 
-\paragraph{What the explanations add.}
-Grad-CAM separates two failure modes that the confusion matrix merges: a cancer the model
-looked at and judged benign, and a cancer it did not look at. The first calls for a model
-that sees the lesion margin, with higher resolution or segmentation. The second calls for a
-clinician who checks where the model looked. Explanations also have limits. A coarse map
-that covers the lesion can make a wrong answer look well founded. And because missed
-cancers can have high confidence, the model's own probability cannot be the only trigger for
-human review. This is why the agent also refers every predicted malignancy and sets its
-threshold on validation data rather than on the test set.
+\paragraph{Explanations separate two failure modes.}
+Grad-CAM tells apart a cancer the model looked at and judged benign from a cancer it did
+not look at; the confusion matrix merges them. The first calls for a model that sees the
+lesion margin, with higher resolution or segmentation. The second calls for a clinician who
+checks where the model looked. Explanations also have limits: a coarse map that covers the
+lesion can make a wrong answer look well founded.
 
 \paragraph{Communicating with the patient.}
-The agent faces a trade-off between the clinician's workload and the risk of false
-reassurance. With $\tau=0.88$ the clinician sees 55\% of the cases, yet three cancers in the
-test set would still be decided automatically, as benign with at least 97\% confidence.
-Telling these patients ``benign'' would delay their treatment. For this reason every
-automatic message states that it is not a diagnosis and every case stays in a log the
-clinician reviews. A deployed system could also choose not to communicate any result before
-the clinician has seen it, at the cost of losing the time it saves. A chatbot adds its own
-risks: it can sound more certain than the model, and a language model can invent content.
-Grounding the answers in cited documents, forbidding diagnoses and yes-or-no answers about
-cancer, and hiding the class of referred cases reduce these risks, but do not remove them.
-Finally, the questions are processed by an external platform. The prototype sends only the
-question, the excerpts and the case summary, and no personal data.
+The agent trades the clinician's workload against the risk of false reassurance. Telling a
+patient with a missed cancer ``benign'' would delay their treatment. This is why every
+automatic message states that it is not a diagnosis and every case stays in the log. A
+deployed system could also wait for the clinician before communicating any result, at the
+cost of the time it saves. A chatbot adds its own risks: it can sound more certain than the
+model, and a language model can invent content. Cited documents, the rules against
+diagnoses and yes-or-no answers, and hiding the class of referred cases reduce these risks
+but do not remove them. The prototype sends the external platform only the question, the
+excerpts and the case summary, and no personal data.
 
 \paragraph{Limitations.}
 The test set is small (149 images, 39 malignant): one false negative changes malignant
@@ -744,35 +706,39 @@ accuracy differences are clearer.
 \section{Conclusion}
 \label{sec:conclusions}
 
-We studied human-in-the-loop Active Learning for breast ultrasound classification. The BUSI
-dataset stores many scans more than once. Splitting by scan lowered the test accuracy of a
-fine-tuned MobileNetV2 from 0.840 to 0.804 (malignant recall 0.70) and removed an apparent
-24\% AL label saving. With a fair protocol --- grouped split, small initial set, random
-baseline, paired repetitions --- no query strategy beat random sampling. Random sampling
-scored higher in most repetitions, and least confidence also detected fewer cancers early in
-the process. A
-malignancy-focused strategy asked the expert about more cancers, but did not detect more of
-them. Grad-CAM showed that the model looks at the lesion when it detects a cancer. Missed
-cancers are either lesions it looked at and judged benign, or small lesions it did not look
-at, often with high confidence. Our agent prototype therefore refers every suspicious or
-uncertain case to the clinician and logs the rest for review. The main difficulties were
-the limited memory of our hardware, which forced a smaller image size and a feature-based
-AL model, and the small, noisy dataset.
+The BUSI dataset stores many scans more than once, and this leakage alone was enough to
+make Active Learning look useful. With a fair protocol, no query strategy beat random
+sampling, and the classic strategies asked the expert about images where an error is
+cheap. Grad-CAM showed that the model also misses cancers it looked at, often with high
+confidence. Our agent therefore refers every suspicious or uncertain case to the clinician
+and logs the rest for review. Table~\ref{tab:hcai} relates these results to human-centred
+AI. The main difficulties were the limited memory of our hardware and the small, noisy
+dataset.
 
-\paragraph{Relation to Human-Centered AI.}
-\emph{Human-in-the-loop}: the expert is consulted where the model selects, keeps the final
-authority over each label, and the model learns from the expert's answer. Our results show
-that \emph{which} questions the model asks the human matters, and that ``where the model is
-unsure'' is not automatically a good answer. \emph{Values and evaluation}: measuring only
-accuracy would have hidden that some strategies miss more cancers.
-\emph{Trust}: a clinician can rely on the system, or overrule it, only if its limits are
-reported --- missed cancers, the leakage that inflated our own first results, the absence of
-a label saving~\cite{shneiderman2020hcai}. \emph{Explainability}: showing where the model
-looked lets the clinician tell a misjudged lesion from an overlooked one, and checking the
-maps against the clinicians' outlines tests the explanation itself. \emph{Human control and
-communication}: the agent keeps the clinician in the loop for suspicious and uncertain
-cases and on the loop (reviewing the log) for the rest, and talks to the patient without ever giving a
-diagnosis.
+\begin{table}[t]
+\centering
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}p{0.25\columnwidth}p{0.70\columnwidth}@{}}
+\toprule
+HCAI topic & In this project \\
+\midrule
+Human-in-the-loop & The expert labels the images the model selects, and the model learns
+from the answer. \emph{Which} questions the model asks matters. \\
+Values & Malignant recall and false negatives, not only accuracy, revealed that some
+strategies miss more cancers. \\
+Trust & We report the system's limits: missed cancers, the leakage in our own first
+results and the absence of a label saving~\cite{shneiderman2020hcai}. \\
+Explainability & Grad-CAM, checked against the lesion outlines, tells a misjudged lesion
+from an overlooked one. \\
+Human control & The agent keeps the clinician in the loop for suspicious cases and on the
+loop for the rest. \\
+Communication & The chatbot answers from cited documents and never gives a diagnosis. \\
+\bottomrule
+\end{tabular}
+\caption{How the project relates to human-centred AI.}
+\label{tab:hcai}
+\end{table}
 
 \paragraph{Future work.}
 (i)~Query strategies that weigh uncertainty by the cost of each error and avoid redundant
