@@ -60,7 +60,7 @@ expert labels only the images the model selects, reduces the labelling effort of
 ultrasound classifier without increasing missed cancers. On the public Breast Ultrasound
 Images dataset we find that its 780 files contain only 601 distinct scans, some stored
 with contradictory labels; splitting by scan instead of by file lowers the test accuracy
-of a fine-tuned MobileNetV2 from 0.840 to 0.790 and makes an apparent 24\% AL label
+of a fine-tuned MobileNetV2 from 0.840 to 0.804 and makes an apparent 24\% AL label
 saving disappear. With this leakage-free split, we simulate AL on frozen MobileNetV2
 features with three uncertainty-based query strategies, a malignancy-focused strategy of
 our own and a random-sampling baseline, over 20 paired repetitions. No strategy is better
@@ -70,7 +70,10 @@ learning curve; least-confidence and entropy sampling also detect significantly 
 cancers early in the curve. We conclude that the images a model is unsure about are
 neither the most informative nor the most clinically relevant ones here, and that claims of
 label savings in medical AL require grouped splits, a random baseline and per-class
-metrics. Code and results:
+metrics. Grad-CAM maps compared with the lesion outlines drawn by clinicians show that the
+model looks at the lesion when it detects a cancer, but misses cancers both by judging a
+lesion it looks at as benign and by looking beside small lesions, often with high
+confidence. Code and results:
 \url{https://github.com/httpirsh/miacd-iach-breast-cancer-diagnosis}.
 \end{abstract}
 
@@ -117,7 +120,9 @@ with all labels (\emph{passive learning}), as the reference to beat;
 malignancy-focused strategy of our own and random sampling, over 20 repetitions;
 \item let a human label the selected images in the notebook, with the model learning from
 the human's answer; and
-\item evaluate every model by malignant recall and false negatives, not only accuracy.
+\item evaluate every model by malignant recall and false negatives, not only accuracy; and
+\item explain the predictions with Grad-CAM~\cite{selvaraju2017gradcam} and check, against
+the lesion outlines, whether the model looks at the lesion.
 \end{enumerate}
 
 The main findings are negative and, we argue, important for human-centred AI. Repeated
@@ -143,7 +148,7 @@ duplicates and images with annotations burned in by the scanner~\cite{pawlowska2
 and many pipelines augment before splitting, so leaked copies can inflate test scores and
 a CNN can learn shortcuts unrelated to the lesion~\cite{geirhos2020shortcut}. With few
 images, transfer learning from networks pre-trained on ImageNet~\cite{deng2009imagenet},
-such as MobileNetV2~\cite{sandler2018mobilenetv2} or EfficientNet~\cite{tan2019efficientnet},
+such as MobileNetV2~\cite{sandler2018mobilenetv2},
 is the usual remedy.
 
 \paragraph{Active Learning.}
@@ -330,6 +335,20 @@ deployment. Answering 250 queries in each of 100 experiments is not feasible for
 so in the quantitative experiments the human is simulated with the dataset label, which
 corresponds to an expert who never errs~\cite{budd2021survey}.
 
+\subsection{Explainability}
+Grad-CAM~\cite{selvaraju2017gradcam} weights each feature map of a convolutional layer by the
+average gradient of the class score with respect to it, sums the weighted maps and keeps the
+positive part, giving a heat map of the regions that raise the score of the class. We apply
+it to the MobileNetV2 of seed 1, on the pre-softmax score of the predicted class (the
+softmax often saturates near 100\%, where its gradient vanishes), at the last convolutional
+layer (a $4\times4$ grid for $128\times128$ inputs). An earlier $8\times8$ layer gave finer
+maps but highlighted the image corners, a padding effect, and overlapped the lesions less.
+BUSI includes a lesion mask drawn by clinicians for every benign and malignant
+image~\cite{aldhabyani2020busi}. For each test image with a lesion we measure the share of
+the map's mass inside the lesion, compared with the lesion's share of the image (what a map
+that ignores the image would obtain), and whether the map's maximum lies inside the lesion
+(the \emph{pointing game}).
+
 \subsection{Evaluation metrics}
 On the test set we report accuracy, macro F1 (the average F1 of the three classes), the
 \textbf{recall of the malignant class} --- the share of cancers that the model detects ---
@@ -356,7 +375,7 @@ made it stop before learning anything; $0.001$ worked, together with ReLU instea
 Weighting malignant errors $1.5\times$ in the loss did not help: over three seeds,
 MobileNetV2 reached a malignant recall of 0.73 with the weights and 0.78 without, probably
 because the training set is already balanced. For MobileNetV2, fine-tuning beat the frozen network, a
-smaller fine-tuning rate, $224\times224$ images and EfficientNetB0.
+smaller fine-tuning rate and $224\times224$ images.
 
 \begin{table}[t]
 \centering
@@ -373,7 +392,6 @@ MobileNetV2, fine-tuned (chosen) & 0.85 & 0.86 \\
 MobileNetV2, frozen only (3 seeds) & 0.77 & 0.65 \\
 MobileNetV2, fine-tune lr 0.00001 (3 seeds) & 0.79 & 0.78 \\
 MobileNetV2, $224\times224$ & 0.78 & 0.79 \\
-EfficientNetB0 & 0.78 & 0.71 \\
 \bottomrule
 \end{tabular}
 \caption{Experiment 1: preliminary configurations on our first, file-level split (test set,
@@ -383,14 +401,17 @@ to compare the configurations with each other.}
 \end{table}
 
 \paragraph{Experiment 2: passive learning.} The CNN and MobileNetV2 are trained on the
-balanced training set (1{,}554 images), with mini-batches of 32 and three seeds (1, 2, 3).
-Each run took between one and a half and three minutes on the GPU.
+balanced training set (1{,}554 images), with mini-batches of 32 and five seeds (1--5).
+Each run took between one and two minutes on the GPU. Training is deterministic
+(TensorFlow's op determinism): without it, some GPU operations sum values in an order that
+changes between runs, and re-running MobileNetV2 with the same seed changed its malignant
+recall from 0.74 to 0.64.
 
 \paragraph{Experiment 3: active learning.} The pool is the 381 training images left with one
 image per scan, and the test set is the same 149 images as in Experiment~2
 (Table~\ref{tab:params}). Each of the 5 strategies is run with 20 seeds, 100 runs in total,
-which take 94 seconds. As reference, the same classifier trained on the whole pool reaches
-accuracy 0.779, macro F1 0.754 and malignant recall 0.718 (11 false negatives of 39), close
+which take 75 seconds. As reference, the same classifier trained on the whole pool reaches
+accuracy 0.785, macro F1 0.760 and malignant recall 0.718 (11 false negatives of 39), close
 to the fine-tuned MobileNetV2.
 
 \begin{table}[t]
@@ -414,18 +435,24 @@ Human & simulated (dataset label) \\
 \label{tab:params}
 \end{table}
 
+\paragraph{Experiment 4: explainability.} Grad-CAM is computed for the 149 test images with
+the MobileNetV2 of seed 1 (accuracy 0.799, malignant recall 0.744, 10 false negatives), and
+compared with the lesion masks of the 121 test images that have a lesion. We also measure
+how many errors a simple human-in-the-loop rule would catch: sending to the clinician every
+case whose predicted class has a probability below a threshold.
+
 % =====================================================================================
 \section{Results}
 \label{sec:results}
 
 \subsection{Passive learning}
 Table~\ref{tab:passive} shows the test results. MobileNetV2 with fine-tuning is the best
-model, with accuracy 0.790 and macro F1 0.764, against 0.631 and 0.614 for the CNN trained
-from scratch, which is also very unstable: depending on the seed its accuracy ranges from
-0.50 to 0.73. In malignant recall the two models are close (0.692 and 0.684), and
-MobileNetV2 varies widely across seeds (0.54 to 0.80, i.e.\ 8 to 18 missed cancers out of
-39). Both models overfit: final training accuracy is 0.94--0.97 for the CNN and close to
-1.00 for MobileNetV2, against validation accuracies of at most 0.76 and 0.84.
+model, with accuracy 0.804 and macro F1 0.782, against 0.609 and 0.592 for the CNN trained
+from scratch, whose accuracy ranges from 0.55 to 0.71 depending on the seed. In malignant
+recall the two models are close (0.697 and 0.718), but the CNN reaches it by calling many
+benign and normal images malignant. MobileNetV2 misses between 10 and 15 of the 39 cancers,
+depending on the seed. Both models overfit: final training accuracy is 0.96--0.98 for the
+CNN and 1.00 for MobileNetV2, against validation accuracies of at most 0.78 and 0.86.
 
 \begin{table}[t]
 \centering
@@ -435,15 +462,15 @@ MobileNetV2 varies widely across seeds (0.54 to 0.80, i.e.\ 8 to 18 missed cance
 \toprule
 Model & Acc. & Macro F1 & Rec.\,mal. & FN \\
 \midrule
-CNN & .631\,\spm\,.095 & .614\,\spm\,.098 & .684\,\spm\,.053 & 12.3\,\spm\,2.1 \\
-MobileNetV2 & \textbf{.790}\,\spm\,.022 & \textbf{.764}\,\spm\,.030 & \textbf{.692}\,\spm\,.111 & \textbf{12.0}\,\spm\,4.3 \\
+CNN & .609\,\spm\,.060 & .592\,\spm\,.067 & \textbf{.718}\,\spm\,.093 & \textbf{11.0}\,\spm\,3.6 \\
+MobileNetV2 & \textbf{.804}\,\spm\,.022 & \textbf{.782}\,\spm\,.021 & .697\,\spm\,.050 & 11.8\,\spm\,1.9 \\
 \midrule
 \multicolumn{5}{l}{\emph{File-level split (repeated scans leak into the test set)}} \\
 MobileNetV2 & .840\,\spm\,.005 & .831\,\spm\,.008 & .802\,\spm\,.049 & 8.3\,\spm\,2.1 \\
 \bottomrule
 \end{tabular}
 \caption{Experiment 2: passive learning on the test set (149 images, 39 malignant), mean
-\spm\ standard deviation over 3 seeds. Rec.\,mal.: malignant recall; FN: false negatives.
+\spm\ standard deviation over 5 seeds. Rec.\,mal.: malignant recall; FN: false negatives.
 Bottom row: same model on our first split (156 test images, 42 malignant), in which copies
 of a scan could fall in both training and test.}
 \label{tab:passive}
@@ -451,20 +478,20 @@ of a scan could fall in both training and test.}
 
 The bottom row of Table~\ref{tab:passive} shows the effect of the repeated scans. On our
 first split --- by file, after removing only the byte-identical duplicate --- MobileNetV2
-reached 0.840 accuracy and 0.802 malignant recall; on the grouped split it drops to 0.790
-and 0.692. Part of the earlier performance came from test images the model had, in effect,
+reached 0.840 accuracy and 0.802 malignant recall; on the grouped split it drops to 0.804
+and 0.697. Part of the earlier performance came from test images the model had, in effect,
 already seen.
 
-Figure~\ref{fig:cm} shows the confusion matrices summed over the three seeds. For
-MobileNetV2, almost all missed cancers are predicted as \emph{benign} (33 of 36); for the
-CNN, 24 of 37 go to benign and 13 to normal, and the CNN also confuses many benign images
-with normal (45) and malignant (50) ones. MobileNetV2's recall is 0.73 for normal, 0.86 for
-benign and 0.69 for malignant images.
+Figure~\ref{fig:cm} shows the confusion matrices summed over the five seeds. For
+MobileNetV2, most missed cancers are predicted as \emph{benign} (50 of 59); for the CNN, 40
+of 55 go to benign and 15 to normal, and the CNN also confuses many benign images with
+normal (80) and malignant (98) ones. MobileNetV2's recall is 0.79 for normal, 0.86 for
+benign and 0.70 for malignant images.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\columnwidth]{figures/confusion_passive.pdf}
-\caption{Passive-learning confusion matrices on the test set, summed over 3 seeds (counts
+\caption{Passive-learning confusion matrices on the test set, summed over 5 seeds (counts
 and row percentages). False negatives are in the \emph{malignant} row, \emph{normal} and
 \emph{benign} columns.}
 \label{fig:cm}
@@ -475,14 +502,14 @@ Figure~\ref{fig:curves} shows the learning curves and Table~\ref{tab:al} the val
 selected numbers of labels.
 
 \paragraph{Macro F1.} No strategy improves on random sampling. Margin sampling is the
-closest: at most points between 40 and 160 labels it lies slightly above random (by at
-most 2.2 points), less than the variation across seeds and not significant ($p\geq0.45$ at
-50, 100 and 150 labels). From about 200 labels on, random sampling is the best strategy,
+closest: between 60 and 150 labels it is level with random, at most 0.8 points above
+it, well within the variation across seeds and not significant ($p\geq0.70$ at 50, 100 and
+150 labels). From about 200 labels on, random sampling is the best strategy,
 and with 270 labels it is significantly better than all four others (0.784 against
-0.755--0.759, $p\leq0.004$). Over the whole curve (Table~\ref{tab:wilcoxon}), margin is
-equivalent to random, while least confidence, entropy and our malignant strategy are
-significantly worse. To reach 95\% of the full-pool macro F1, margin needs 120 labels,
-random 130, least confidence and malignant 140, and entropy 150.
+0.755--0.760, $p\leq0.001$). Over the whole curve (Table~\ref{tab:wilcoxon}), margin is
+not significantly different from random ($p=0.076$), while least confidence, entropy and our malignant strategy are
+significantly worse. To reach 95\% of the full-pool macro F1, random and entropy need 130
+labels, and least confidence, margin and malignant 140.
 
 \begin{figure*}[t]
 \centering
@@ -503,18 +530,18 @@ the same classifier trained on the whole pool (381 images).}
 Strategy & 50 & 100 & 150 & 200 & 270 & 95\% F1 \\
 \midrule
 \multicolumn{7}{l}{\emph{Macro F1}} \\
-Random       & .605 & .692 & .735 & \textbf{.762} & \textbf{.784} & 130 \\
-Least conf.  & .601 & .690 & .734 & .753 & .758 & 140 \\
-Entropy      & .594 & .668 & .726 & .749 & .755 & 150 \\
-Margin       & \textbf{.618} & \textbf{.699} & \textbf{.745} & .757 & .759 & \textbf{120} \\
-Malignant    & .590 & .682 & .732 & .756 & .755 & 140 \\
+Random       & \textbf{.606} & .692 & .735 & \textbf{.762} & \textbf{.784} & \textbf{130} \\
+Least conf.  & .592 & .673 & .737 & .758 & .758 & 140 \\
+Entropy      & .589 & .683 & .723 & .742 & .760 & \textbf{130} \\
+Margin       & .603 & \textbf{.697} & \textbf{.738} & .758 & .755 & 140 \\
+Malignant    & .585 & .671 & .735 & .759 & .757 & 140 \\
 \midrule
 \multicolumn{7}{l}{\emph{Malignant recall}} \\
-Random       & .581 & \textbf{.651} & \textbf{.679} & \textbf{.700} & \textbf{.709} & \\
-Least conf.  & .558 & .592 & .649 & .676 & .703 & \\
-Entropy      & .518 & .563 & .623 & .682 & .697 & \\
-Margin       & .542 & .638 & .660 & .692 & .696 & \\
-Malignant    & \textbf{.582} & .632 & .637 & .665 & .695 & \\
+Random       & .582 & \textbf{.651} & \textbf{.679} & \textbf{.700} & \textbf{.709} & \\
+Least conf.  & .553 & .578 & .668 & .683 & .697 & \\
+Entropy      & .545 & .590 & .605 & .669 & .699 & \\
+Margin       & \textbf{.603} & .614 & .656 & .665 & .694 & \\
+Malignant    & .579 & .637 & .660 & .668 & .701 & \\
 \bottomrule
 \end{tabular}
 \caption{Experiment 3 on the test set, mean over 20 seeds (standard deviations 0.02--0.08
@@ -523,15 +550,16 @@ for F1 and 0.03--0.14 for recall). Last column: labels needed for the mean curve
 \label{tab:al}
 \end{table}
 
-\paragraph{Malignant recall.} Random sampling is again equal or better than every other
-strategy at almost every point of the curve. The gap is largest early: with 100 labels,
-random sampling detects 65.1\% of the cancers, least confidence 59.2\% ($p=0.012$) and
-entropy 56.3\% ($p=0.002$) --- on average 13.6 missed cancers out of 39, against 15.9 and
-17.0. Our malignant strategy is below random from 60 labels on, significantly at 150 and
-200 labels ($p=0.013$ and $0.007$). With 270 labels all strategies converge to a malignant
-recall of about 0.70. Over the whole curve, least confidence and entropy are significantly
-worse than random, while margin and malignant are lower but not significantly
-(Table~\ref{tab:wilcoxon}).
+\paragraph{Malignant recall.} From 70 labels on, random sampling is equal or better than
+every other strategy at almost every point of the curve; only margin sampling is slightly
+above it in the first 60 labels. The gap is largest early: with 100 labels, random sampling
+detects 65.1\% of the cancers, least confidence 57.8\% ($p=0.019$) and entropy 59.0\%
+($p=0.008$) --- on average 13.6 missed cancers out of 39, against 16.5 and 16.0. Entropy
+stays significantly below random from 70 to 180 labels. Margin and our malignant strategy
+are below random from 70--80 labels on, significantly at 200 labels ($p=0.023$ and
+$0.036$). With 270 labels all strategies converge to a malignant recall of about 0.70. Over
+the whole curve, entropy is significantly worse than random, while least confidence, margin
+and malignant are lower but not significantly (Table~\ref{tab:wilcoxon}).
 
 \begin{table}[t]
 \centering
@@ -542,15 +570,15 @@ worse than random, while margin and malignant are lower but not significantly
 & \multicolumn{2}{c}{Macro F1} & \multicolumn{2}{c}{Malignant recall} \\
 Strategy & Diff. & $p$ & Diff. & $p$ \\
 \midrule
-Least conf. & $-0.012$ & 0.017 & $-0.024$ & 0.017 \\
-Entropy     & $-0.019$ & 0.002 & $-0.040$ & 0.002 \\
-Margin      & $-0.005$ & 0.25  & $-0.015$ & 0.28 \\
-Malignant   & $-0.016$ & 0.024 & $-0.026$ & 0.076 \\
+Least conf. & $-0.017$ & 0.008 & $-0.027$ & 0.097 \\
+Entropy     & $-0.018$ & 0.002 & $-0.044$ & 0.002 \\
+Margin      & $-0.009$ & 0.076 & $-0.024$ & 0.17 \\
+Malignant   & $-0.015$ & 0.006 & $-0.016$ & 0.14 \\
 \bottomrule
 \end{tabular}
 \caption{Difference to random sampling in the average of each metric over the whole
 learning curve (20--270 labels), mean of 20 paired seeds, with the Wilcoxon $p$-value.
-Random's averages are 0.707 (F1) and 0.656 (recall).}
+Random's averages are 0.708 (F1) and 0.656 (recall).}
 \label{tab:wilcoxon}
 \end{table}
 
@@ -561,6 +589,57 @@ malignant strategy asks for the most malignant images (38\%). We also tried, out
 reported runs, querying one image per round instead of ten, and modAL's strategy that
 combines uncertainty with diversity; both stayed within about one F1 point of random
 sampling.
+
+\subsection{Explainability}
+When the model detects a cancer it mostly looks at the lesion (Figure~\ref{fig:gradcam}, top;
+Table~\ref{tab:gradcam}): 35\% of the map's mass falls inside lesions that cover 18\% of the
+image, about twice what a map that ignored the image would obtain. The ten missed cancers
+are of two kinds (Figure~\ref{fig:gradcam}, bottom). In some, the map covers the lesion and
+the model still calls it benign; these are large, oval lesions with smooth margins, which
+look benign. In others, mostly small lesions, the map lies on the tissue beside or above the
+lesion. The maps are coarse: their maximum falls inside the lesion
+in only 17--38\% of the images, so they show the region the model used, not the lesion
+margin that separates benign from malignant.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/gradcam_examples.pdf}
+\caption{Grad-CAM of MobileNetV2 (seed 1) on test images; red marks the regions that raise
+the score of the predicted class, and the white line is the lesion outlined by clinicians.
+Top: detected cancers (random sample). Bottom: missed cancers, two in which the model looked
+at the lesion and two in which it looked elsewhere. Titles give the predicted class and its
+probability.}
+\label{fig:gradcam}
+\end{figure*}
+
+\begin{table}[t]
+\centering
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lcccc}
+\toprule
+Test images & $n$ & Mass & Area & Max \\
+\midrule
+Malignant, detected & 29 & 35\% & 18\% & 38\% \\
+Malignant, missed & 10 & 24\% & 13\% & 30\% \\
+Benign, correct & 63 & 15\% & 7\% & 17\% \\
+Benign, wrong & 19 & 13\% & 8\% & 21\% \\
+\bottomrule
+\end{tabular}
+\caption{Experiment 4: overlap between the Grad-CAM of the predicted class and the lesion
+mask (means). Mass: share of the map inside the lesion; Area: share of the image covered by
+the lesion, which a map that ignores the image would also obtain; Max: share of images whose
+map maximum lies inside the lesion.}
+\label{tab:gradcam}
+\end{table}
+
+The model is often confident when it is wrong: three of the ten missed cancers are predicted
+benign with a probability of at least 97\%, and nine of them receive a malignancy probability
+below 25\%, so a rule such as ``refer when the probability of malignancy exceeds 50\%'' would
+catch none of them. Referring every case whose predicted class has a probability below 90\%
+sends 41\% of the test images to the clinician and catches 21 of the 30 errors, including 7
+of the 10 missed cancers; a threshold of 80\% refers 30\% and catches 4 missed cancers, and
+one of 99\% refers 64\% and catches 9.
 
 % =====================================================================================
 \section{Discussion}
@@ -588,7 +667,7 @@ benefit of AL depends strongly on the data, the model and the evaluation protoco
 We see three plausible reasons, which our experiments do not separate. (i)~The pre-trained
 features already separate the classes reasonably well, so a random sample of a few dozen
 images is already informative: random sampling with 270 labels (0.784) even exceeds the
-classifier trained on all 381 pool images (0.754), so differences of a few points are
+classifier trained on all 381 pool images (0.760), so differences of a few points are
 within the variation due to \emph{which} images are labelled. (ii)~The images on which the
 model is most uncertain are often the most ambiguous, and ambiguous images are also the
 most likely to be mislabelled --- BUSI contains the same scan under contradictory labels.
@@ -619,6 +698,17 @@ model looked would keep the human in control rather than turning them into a rub
 Even the best passive model misses 12 of 39 cancers on average; the system can support, but
 not replace, the clinician.
 
+\paragraph{What the explanations add.}
+Grad-CAM separates two failure modes that the confusion matrix merges: a cancer the model
+looked at and judged benign, and a cancer it did not look at. The first calls for a model
+that sees the lesion margin (higher resolution, segmentation); the second for a clinician
+who checks where the model looked. Explanations also have limits: a coarse map that covers
+the lesion can make a wrong answer look well founded, and high confidence on missed cancers
+means that the model's own probability cannot be the only trigger for human review. The
+90\% rule above is a trade-off --- a clinician reviews four in ten cases to catch seven in
+ten missed cancers --- and the threshold was examined on the test set; a deployed system
+would set it on validation data.
+
 \paragraph{Limitations.}
 The test set is small (149 images, 39 malignant): one false negative changes malignant
 recall by 2.6 points, and all runs share one data split. The 0.95 threshold for repeated
@@ -627,7 +717,8 @@ on the test set of the first split, so the model choice is partly informed by te
 within the AL experiments, no choice used the test set. AL uses a linear classifier on
 frozen features rather than the fine-tuned network, so its conclusions may not transfer
 unchanged to a fine-tuned model. Rotations of 90$^\circ$ and 180$^\circ$ produce images a
-scanner never produces. Finally, with eight tests in Table~\ref{tab:wilcoxon}, a stricter
+scanner never produces. Grad-CAM was computed for a single model (seed 1). Finally, with eight
+tests in Table~\ref{tab:wilcoxon}, a stricter
 (Bonferroni) correction leaves only the differences of entropy sampling significant.
 
 % =====================================================================================
@@ -636,13 +727,15 @@ scanner never produces. Finally, with eight tests in Table~\ref{tab:wilcoxon}, a
 
 We studied human-in-the-loop Active Learning for breast ultrasound classification. The
 BUSI dataset stores many scans more than once; splitting by scan lowered the test accuracy
-of a fine-tuned MobileNetV2 from 0.840 to 0.790 (malignant recall 0.69) and removed an
+of a fine-tuned MobileNetV2 from 0.840 to 0.804 (malignant recall 0.70) and removed an
 apparent 24\% AL label saving. With a fair protocol --- grouped split, small initial set,
 random baseline, paired repetitions --- no query strategy beat random sampling: margin
 sampling was equivalent to it, the others were significantly worse in macro F1, and least
 confidence and entropy also detected significantly fewer cancers early in the process. A
 malignancy-focused strategy asked the expert about more cancers but did not detect more of
-them. The main difficulties were the limited memory of our hardware, which forced a smaller
+them. Grad-CAM showed that the model looks at the lesion when it detects a cancer, while
+missed cancers are either lesions it looked at and judged benign or small lesions it did not
+look at, often with high confidence. The main difficulties were the limited memory of our hardware, which forced a smaller
 image size and a feature-based AL model, and the small, noisy dataset.
 
 \paragraph{Relation to Human-Centered AI.}
@@ -653,17 +746,19 @@ unsure'' is not automatically a good answer. \emph{Values and evaluation}: measu
 accuracy or macro F1 would have hidden that some strategies miss more cancers.
 \emph{Trust}: reporting what the system cannot do --- missed cancers, leakage that inflated
 our own first results, the absence of a label saving --- is a prerequisite for a clinician
-to rely on it or overrule it~\cite{shneiderman2020hcai}.
+to rely on it or overrule it~\cite{shneiderman2020hcai}. \emph{Explainability}: showing
+where the model looked lets the clinician tell a misjudged lesion from an overlooked one,
+and checking the maps against clinicians' outlines tests the explanation itself.
 
 \paragraph{Future work.}
 (i)~Query strategies that weigh uncertainty by the cost of each error and avoid redundant
-images~\cite{sener2018coreset}; (ii)~Grad-CAM~\cite{selvaraju2017gradcam} explanations
-shown with each query, so the expert can see whether the model looked at the lesion;
+images~\cite{sener2018coreset}; (ii)~showing the Grad-CAM with each AL query, so the expert
+can see whether the model looked at the lesion, and finer maps at higher resolution;
 (iii)~a patient-facing agent prototype, in a notebook, that presents the prediction and
 answers questions about the disease from trusted sources~\cite{lewis2020rag,lpcc}, stating
 clearly that it is not a diagnosis; (iv)~AL with the fine-tuned network and repeated
 grouped splits; and (v)~a study with clinicians measuring labelling time and the effect of
-showing the model's suggestion. \todo{move (ii) and (iii) into the main text if implemented
+showing the model's suggestion. \todo{move (iii) into the main text if implemented
 before submission}.
 
 % =====================================================================================
@@ -671,8 +766,9 @@ before submission}.
 The repository (\url{https://github.com/httpirsh/miacd-iach-breast-cancer-diagnosis})
 contains the code (\texttt{src/}), the notebooks with their saved outputs, a
 \texttt{requirements.txt} and a README with instructions to obtain the dataset and run the
-notebooks in order. Metrics are saved to \texttt{results/}, and the figures of this paper
-are generated from them by \texttt{report/figures/make\_figures.py}.
+notebooks in order. Training is deterministic, so each seed reproduces the same model.
+Metrics are saved to \texttt{results/}, and the figures of this paper are generated from
+them, and from the saved model, by \texttt{report/figures/make\_figures.py}.
 
 %% \section*{Contribution Statement}
 %% \todo{who did what, if required}

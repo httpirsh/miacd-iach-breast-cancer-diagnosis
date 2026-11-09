@@ -6,25 +6,17 @@ Projeto da unidade curricular **Inteligência Artificial Centrada no Humano**, M
 
 Identificar casos de cancro da mama a partir de ecografias mamárias, com foco em reduzir falsos negativos. Usamos **Active Learning** com **Human-in-the-Loop (HitL)**: o humano valida as decisões críticas do modelo, aumentando a confiabilidade e garantindo supervisão ética do sistema.
 
-Projeto em fase inicial — a abordagem e o conteúdo deste README vão evoluir.
-
 ## Estado atual
 
-- Pré-processamento sem data leakage: o dataset tem 780 ficheiros mas só **601 ecografias diferentes** (muitas estão repetidas com recortes ligeiramente diferentes). A divisão treino/validação/teste (~65/15/20) é feita **por grupos de imagens repetidas** e **antes** do balanceamento; 19 imagens repetidas com labels contraditórias são excluídas.
-- **Passive Learning** (notebook 01, média de 3 seeds no teste):
-
-  | Modelo | Accuracy | F1 macro | Recall maligno |
-  |---|---|---|---|
-  | CNN treinada de raiz (lr 0.001 + early stopping) | 0.63 | 0.61 | 0.68 |
-  | MobileNetV2 pré-treinada + fine-tuning | **0.79** | **0.76** | **0.69** |
-
+- Pré-processamento sem data leakage: o dataset tem 780 ficheiros mas só **601 ecografias diferentes** (muitas estão repetidas com recortes ligeiramente diferentes). A divisão treino/validação/teste (~64/17/20) é feita **por grupos de imagens repetidas** e **antes** do balanceamento; 19 imagens repetidas com labels contraditórias são excluídas.
+- **Passive Learning** (notebook 01, 5 seeds, treino determinístico): a MobileNetV2 pré-treinada chega a ~0.80 de accuracy e a CNN treinada de raiz a ~0.61; ambas detetam ~70% dos cancros. Os números completos estão no notebook 01 e no relatório (`report/`).
 - **Active Learning** com [modAL](https://modal-python.readthedocs.io/) (notebook 02): `uncertainty`, `entropy`, `margin` e uma estratégia nossa focada nos malignos, comparadas com a escolha ao acaso (20 seeds). Sem data leakage, **nenhuma estratégia poupa anotações em relação à escolha ao acaso**, e as estratégias de incerteza detetam um pouco menos cancros no início.
 - Exemplos de previsões do modelo (falsos negativos, outros erros, acertos) no notebook 01.
+- **Explicabilidade com Grad-CAM** (notebook 03): mapas de onde a MobileNetV2 olhou, comparados com o contorno das lesões desenhado pelos médicos. Quando deteta um cancro, o modelo olha sobretudo para a lesão; nos falsos negativos, umas vezes olha para a lesão e acha-a benigna, outras olha para o tecido ao lado. Enviar ao médico os casos com confiança abaixo de 90% apanharia 7 dos 10 falsos negativos, à custa de rever 41% das imagens.
 - Human-in-the-Loop: o humano pode dar as labels no notebook 02 (`HUMAN = True`).
 
 ## Próximos passos
 
-- Explicabilidade com Grad-CAM.
 - Agente para o paciente: protótipo num notebook que explica a previsão e responde a perguntas do domínio com RAG, usando uma API de LLM.
 
 ## Estrutura do repositório
@@ -34,22 +26,24 @@ Projeto em fase inicial — a abordagem e o conteúdo deste README vão evoluir.
 ├── notebooks/                       # correr por esta ordem
 │   ├── 00_data_exploration.ipynb    # classes, exemplos, tamanhos, memória necessária
 │   ├── 01_passive_learning.ipynb    # baseline: CNN e MobileNetV2 treinadas com todo o conjunto de treino
-│   └── 02_active_learning.ipynb     # Active Learning (uncertainty, entropy, margin) vs escolha ao acaso
+│   ├── 02_active_learning.ipynb     # Active Learning (uncertainty, entropy, margin, malignant) vs escolha ao acaso
+│   └── 03_explicabilidade.ipynb     # Grad-CAM: onde o modelo olhou, comparado com as lesões
 ├── src/                             # código partilhado pelos notebooks
-│   ├── config.py                    # caminhos (dataset, resultados)
+│   ├── config.py                    # caminhos (dataset, resultados, modelos)
 │   ├── data.py                      # carregamento, divisão treino/teste e balanceamento
 │   ├── exploration.py               # gráficos e contagens da exploração dos dados
 │   ├── gpu.py                       # preparar a GPU NVIDIA local para o TensorFlow
 │   ├── model.py                     # CNN, MobileNetV2 (transfer learning), treino com early stopping
 │   ├── active_learning.py           # ciclo de Active Learning com Human-in-the-Loop
+│   ├── explain.py                   # Grad-CAM e comparação com as máscaras das lesões
 │   └── evaluation.py                # métricas (recall, F1, falsos negativos) e gráficos
 ├── docs/
 │   ├── projeto/                     # enunciado 2026/27, a nossa proposta, checklist, análise
 │   ├── exemplos_artigos/            # artigos de exemplo indicados pelo professor
-│   ├── template_ijcai26/            # template do relatório (IJCAI-ECAI 26)
 │   └── dataset/                     # metadados e licença do dataset
 ├── report/                          # relatório final em LaTeX (template IJCAI-ECAI 26)
 ├── results/                         # métricas guardadas pelos notebooks (criada ao correr)
+├── models/                          # MobileNetV2 treinada pelo notebook 01 (não versionada)
 └── data/                            # dataset (não versionado, ver abaixo)
 ```
 
@@ -59,7 +53,7 @@ Projeto em fase inicial — a abordagem e o conteúdo deste README vão evoluir.
 
 ## Como correr
 
-Correr os notebooks por ordem: `00` (exploração, opcional), `01` (guarda a baseline em `results/`) e `02`. Os parâmetros (tamanho das imagens, learning rate, seeds, nº de imagens pedidas ao humano, humano real ou simulado) estão na secção **1. Configuração** de cada notebook.
+Correr os notebooks por ordem: `00` (exploração, opcional), `01` (guarda a baseline em `results/` e o modelo em `models/`), `02` e `03` (usa o modelo guardado pelo `01`). Os parâmetros (tamanho das imagens, learning rate, seeds, nº de imagens pedidas ao humano, humano real ou simulado) estão na secção **1. Configuração** de cada notebook.
 
 ### Localmente, com GPU
 

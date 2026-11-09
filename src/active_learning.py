@@ -7,6 +7,7 @@ iteração e as experiências podem repetir-se com várias seeds.
 
 import time
 import warnings
+from functools import partial
 
 import numpy as np
 from modAL.models import ActiveLearner
@@ -25,9 +26,8 @@ from .evaluation import compute_metrics
 warnings.filterwarnings("ignore", message=".*force_all_finite.*", category=FutureWarning)
 
 
-def random_sampling(classifier, X_pool, n_instances=1, rng=None):
+def random_sampling(classifier, X_pool, n_instances=1, *, rng):
     """Estratégia de referência: escolhe imagens ao acaso, sem olhar para o modelo."""
-    rng = rng if rng is not None else np.random.default_rng()
     return rng.choice(len(X_pool), size=n_instances, replace=False)
 
 
@@ -88,10 +88,9 @@ def run_active_learning(strategy, f_train, y_train, f_test, y_test, n_initial=20
                                       random_state=seed)
     pool_idx = np.setdiff1d(np.arange(len(f_train)), initial_idx)   # índices das imagens ainda sem label
 
-    query_rng = np.random.default_rng(seed + 1000)   # só usado pela estratégia random
     query_strategy = STRATEGIES[strategy]
-    if strategy == "random":
-        query_strategy = lambda clf, X, n_instances=1: random_sampling(clf, X, n_instances, query_rng)
+    if strategy == "random":   # gerador próprio de cada seed, para a escolha ao acaso ser reprodutível
+        query_strategy = partial(random_sampling, rng=np.random.default_rng(seed + 1000))
 
     learner = ActiveLearner(estimator=make_classifier(C), query_strategy=query_strategy,
                             X_training=f_train[initial_idx], y_training=y_train[initial_idx])

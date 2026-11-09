@@ -1,8 +1,8 @@
 """Generate the paper's figures (English labels) from results/*.json.
 
-Run from the repository root, after notebooks 01 and 02:
+Run from the repository root, after notebooks 01 and 02 (the Grad-CAM figure also needs the model
+saved by notebook 01 in models/mobilenet.keras):
     .venv/bin/python report/figures/make_figures.py
-Use the project environment: the grouped split depends on the scikit-learn version (1.7.2).
 Writes PDF figures next to this script.
 """
 
@@ -20,8 +20,8 @@ from sklearn.metrics import confusion_matrix
 ROOT = Path(__file__).resolve().parents[2]
 OUT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
-from src.config import DATA_PATH, RESULTS_PATH  # noqa: E402
-from src.data import CLASSES, load_dataset      # noqa: E402
+from src.config import DATA_PATH, MODELS_PATH, RESULTS_PATH  # noqa: E402
+from src.data import CLASSES, load_dataset, load_lesion_mask      # noqa: E402
 
 plt.rcParams.update({
     "font.family": "serif", "font.size": 8, "axes.titlesize": 8, "axes.labelsize": 8,
@@ -66,8 +66,8 @@ def learning_curves():
 
 
 def confusion_matrices():
-    *_, y_test = load_dataset(DATA_PATH, size=16)   # same split (seed 1); image size is irrelevant here
     passive = json.load(open(RESULTS_PATH / "passive_learning.json"))
+    y_test = passive["y_test"]
     fig, axs = plt.subplots(1, 2, figsize=(3.4, 1.85), constrained_layout=True)
     for ax, (name, title) in zip(axs, [("cnn", "CNN (from scratch)"), ("mobilenet", "MobileNetV2")]):
         cm = sum(confusion_matrix(y_test, r["y_pred"], labels=range(3)) for r in passive[name]["runs"])
@@ -88,7 +88,52 @@ def confusion_matrices():
     plt.close(fig)
 
 
+def grad_cam_examples():
+    """Grad-CAM of the saved MobileNetV2 (seed 1): detected cancers and the two kinds of missed cancers."""
+    from src.gpu import setup_gpu
+    setup_gpu()
+    from src.explain import GradCAM, lesion_overlap, load_model
+
+    _, _, x, _, _, y, names = load_dataset(DATA_PATH, size=128, test_names=True)
+    masks = np.array([load_lesion_mask(DATA_PATH, name, 128) for name in names])
+    model = load_model(MODELS_PATH / "mobilenet.keras")
+    pred = model.predict(x, verbose=0).argmax(axis=1)
+    explainer = GradCAM(model)
+    malignant = CLASSES.index("malignant")
+    detected = np.where((y == malignant) & (pred == malignant))[0]
+    missed = np.where((y == malignant) & (pred != malignant))[0]
+    energy = {i: lesion_overlap(explainer(x[i])[0], masks[i])["energy"] for i in missed}
+    missed = sorted(missed, key=energy.get)
+
+    def distinct(candidates, n):
+        """First n images that are not copies of each other (the test set keeps repeated scans together)."""
+        chosen = []
+        for i in candidates:
+            if all(np.corrcoef(x[i].ravel(), x[j].ravel())[0, 1] < 0.8 for j in chosen):
+                chosen.append(i)
+            if len(chosen) == n:
+                break
+        return chosen
+
+    rows = [np.random.default_rng(0).choice(detected, 4, replace=False),
+            distinct(missed[::-1], 2) + distinct(missed, 2)]   # missed: looked at the lesion / looked elsewhere
+    fig, axs = plt.subplots(2, 4, figsize=(7.0, 3.9), constrained_layout=True)
+    for row, indices in zip(axs, rows):
+        for ax, i in zip(row, indices):
+            cam, probs = explainer(x[i])
+            ax.imshow(x[i], cmap="gray")
+            ax.imshow(cam, cmap="jet", alpha=0.4, vmin=0, vmax=1)
+            ax.contour(masks[i], levels=[0.5], colors="white", linewidths=0.8)
+            p = int(np.argmax(probs))
+            ax.set_title(("detected" if p == malignant else f"missed: {CLASSES[p]}") + f" ({probs[p]:.0%})", fontsize=7)
+            ax.axis("off")
+    fig.savefig(OUT / "gradcam_examples.pdf")
+    plt.close(fig)
+
+
 if __name__ == "__main__":
     learning_curves()
     confusion_matrices()
+    if (MODELS_PATH / "mobilenet.keras").exists():
+        grad_cam_examples()
     print("Figures written to", OUT)

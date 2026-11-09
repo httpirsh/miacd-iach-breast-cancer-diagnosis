@@ -18,6 +18,11 @@ AUGMENTATIONS = {
 }
 
 
+def label_from_name(name):
+    """Classe de uma imagem, tirada do nome do ficheiro (ex.: "benign (12).png" -> "benign")."""
+    return name.split(" ")[0]
+
+
 def find_duplicates(path, threshold=0.95):
     """Agrupa as imagens repetidas do dataset: a mesma ecografia guardada em ficheiros diferentes.
 
@@ -49,7 +54,7 @@ def find_duplicates(path, threshold=0.95):
     groups = {name: root(i) for i, name in enumerate(names)}
     labels_per_group = {}
     for name, group in groups.items():
-        labels_per_group.setdefault(group, set()).add(name.split(" ")[0])
+        labels_per_group.setdefault(group, set()).add(label_from_name(name))
     conflicts = {name for name, group in groups.items() if len(labels_per_group[group]) > 1}
     return groups, conflicts
 
@@ -58,7 +63,8 @@ def load_images(path, size=224):
     """Lê as imagens em escala de cinzento, redimensionadas e normalizadas para [0, 1].
 
     As classes vêm do nome do ficheiro (ex.: "benign (12).png"). As imagens repetidas com labels
-    diferentes são excluídas. Devolve também o grupo de cada imagem (imagens repetidas têm o mesmo grupo).
+    diferentes são excluídas. Devolve também o grupo de cada imagem (imagens repetidas têm o mesmo grupo)
+    e o nome do ficheiro.
     """
     groups, conflicts = find_duplicates(path)
     names = [name for name in sorted(os.listdir(path)) if name not in conflicts]
@@ -66,8 +72,8 @@ def load_images(path, size=224):
         np.asarray(Image.open(os.path.join(path, name)).convert("L").resize((size, size)), dtype=np.float32) / 255.0
         for name in names
     ])
-    labels = np.array([CLASSES.index(name.split(" ")[0]) for name in names])
-    return images, labels, np.array([groups[name] for name in names])
+    labels = np.array([CLASSES.index(label_from_name(name)) for name in names])
+    return images, labels, np.array([groups[name] for name in names]), np.array(names)
 
 
 def augment(images, labels):
@@ -84,10 +90,10 @@ def augment(images, labels):
     return np.concatenate(new_images), np.concatenate(new_labels)
 
 
-def load_dataset(path, size=224, val_size=0.15, test_size=0.2, seed=1, balance=True, unique_train=False):
+def load_dataset(path, size=224, seed=1, balance=True, unique_train=False, test_names=False):
     """Devolve x_train, x_val, x_test, y_train, y_val, y_test (labels numéricas).
 
-    As imagens originais são divididas em treino (~65%), validação (~15%) e teste (~20%), de forma
+    As imagens originais são divididas em treino (~64%), validação (~17%) e teste (~20%), de forma
     estratificada e por grupos (as cópias da mesma ecografia ficam sempre no mesmo conjunto), ANTES do
     balanceamento. Assim, nenhuma imagem de validação ou de teste (nem uma cópia ou versão rodada dela)
     é usada no treino (data leakage). Só o treino é balanceado; a validação e o
@@ -97,14 +103,16 @@ def load_dataset(path, size=224, val_size=0.15, test_size=0.2, seed=1, balance=T
     anota imagens reais e não cópias rodadas).
     unique_train=True deixa no treino só uma imagem de cada grupo de repetidas (no Active Learning, o
     humano não deve ter de anotar a mesma ecografia duas vezes).
+    test_names=True devolve também os nomes dos ficheiros do teste (para ir buscar as máscaras das lesões).
     """
-    images, labels, groups = load_images(path, size)
+    images, labels, groups, names = load_images(path, size)
 
     # Divisão por grupos: todas as cópias de uma ecografia ficam no mesmo conjunto.
-    # StratifiedGroupKFold com 5 partes: uma parte (~20%) para teste; depois, do resto, ~1/5 para validação.
+    # StratifiedGroupKFold com 5 partes: uma parte (20%) para teste; depois, do resto, outra vez 1 de 5 partes
+    # (⅕ de 80%, ~17% do total) para validação; fica ~64% para treino.
     folds = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=seed)
     rest, test = next(folds.split(images, labels, groups))
-    folds = StratifiedGroupKFold(n_splits=round(1 / (val_size / (1 - test_size))), shuffle=True, random_state=seed)
+    folds = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=seed)
     train, val = next(folds.split(images[rest], labels[rest], groups[rest]))
     train, val = rest[train], rest[val]
     if unique_train:
@@ -113,13 +121,38 @@ def load_dataset(path, size=224, val_size=0.15, test_size=0.2, seed=1, balance=T
     x_train, x_val, x_test = images[train], images[val], images[test]
     y_train, y_val, y_test = labels[train], labels[val], labels[test]
 
+    extra = (names[test],) if test_names else ()
+
     if not balance:
-        return x_train, x_val, x_test, y_train, y_val, y_test
+        return (x_train, x_val, x_test, y_train, y_val, y_test) + extra
 
     # Balancear e baralhar só o treino (o augment junta as cópias por classe no fim)
     x_train, y_train = augment(x_train, y_train)
     order = np.random.default_rng(seed).permutation(len(x_train))
-    return x_train[order], x_val, x_test, y_train[order], y_val, y_test
+    return (x_train[order], x_val, x_test, y_train[order], y_val, y_test) + extra
+
+
+def load_lesion_mask(path, name, size=224):
+    """Máscara da lesão desenhada pelos médicos (True = lesão), redimensionada como a imagem.
+
+    As anotações estão em ds/ann/<nome>.json (formato Supervisely): cada lesão é um bitmap (PNG comprimido
+    com zlib, em base64) com a posição do canto superior esquerdo. As imagens normais não têm lesão.
+    """
+    import base64
+    import io
+    import json
+    import zlib
+
+    with open(os.path.join(os.path.dirname(path), "ann", name + ".json")) as f:
+        ann = json.load(f)
+    mask = np.zeros((ann["size"]["height"], ann["size"]["width"]), dtype=bool)
+    for obj in ann["objects"]:
+        bitmap = np.asarray(Image.open(io.BytesIO(zlib.decompress(base64.b64decode(obj["bitmap"]["data"])))))
+        bitmap = bitmap[..., -1] > 0 if bitmap.ndim == 3 else bitmap > 0   # canal alpha = lesão
+        x, y = obj["bitmap"]["origin"]
+        h, w = bitmap.shape
+        mask[y:y + h, x:x + w] |= bitmap[:mask.shape[0] - y, :mask.shape[1] - x]
+    return np.asarray(Image.fromarray(mask).resize((size, size), Image.NEAREST))
 
 
 def summarize(x_train, x_val, x_test, y_train, y_val, y_test):

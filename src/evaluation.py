@@ -4,8 +4,7 @@ import json
 
 import matplotlib.pyplot as plt
 import numpy as np
-import seaborn as sns
-from sklearn.metrics import accuracy_score, confusion_matrix, f1_score, recall_score
+from sklearn.metrics import ConfusionMatrixDisplay, accuracy_score, f1_score, recall_score
 
 from .data import CLASSES
 
@@ -35,13 +34,12 @@ def load_json(path):
 
 
 def plot_confusion_matrix(y_true, y_pred, title="Confusion Matrix"):
-    confusion_mtx = confusion_matrix(y_true, y_pred, labels=range(len(CLASSES)))
-    f, ax = plt.subplots(figsize=(6, 5))
-    sns.heatmap(confusion_mtx, annot=True, linewidths=0.01, cmap="BuPu", linecolor="gray", fmt="d", ax=ax,
-                xticklabels=CLASSES, yticklabels=CLASSES)
-    plt.xlabel("Predicted Label")
-    plt.ylabel("True Label")
-    plt.title(title)
+    fig, ax = plt.subplots(figsize=(6, 5))
+    ConfusionMatrixDisplay.from_predictions(y_true, y_pred, labels=range(len(CLASSES)), display_labels=CLASSES,
+                                            cmap="BuPu", ax=ax)
+    ax.set_xlabel("Predicted Label")
+    ax.set_ylabel("True Label")
+    ax.set_title(title)
     plt.show()
 
 

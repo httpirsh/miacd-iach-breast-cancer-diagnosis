@@ -24,7 +24,8 @@ def setup_gpu():
     """Prepara a GPU (se existir) e diz se o treino vai correr na GPU ou no CPU.
 
     Chamar antes de criar qualquer modelo. Ativa o "memory growth", para o TensorFlow só reservar
-    a memória da GPU de que precisa (importante em GPUs pequenas, ex.: 4 GB).
+    a memória da GPU de que precisa (importante em GPUs pequenas, ex.: 4 GB), e o modo determinístico,
+    para a mesma seed dar sempre o mesmo resultado.
     """
     os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")   # esconder as mensagens internas do TensorFlow
     if sys.platform.startswith("linux"):
@@ -32,6 +33,9 @@ def setup_gpu():
     import tensorflow as tf
 
     tf.get_logger().setLevel("ERROR")   # esconder avisos de desempenho que não afetam os resultados
+    # Sem isto, algumas operações na GPU (ex.: gradientes das convoluções) somam valores por uma ordem
+    # que muda de corrida para corrida, e a mesma seed dava modelos (e resultados) diferentes.
+    tf.config.experimental.enable_op_determinism()
 
     gpus = tf.config.list_physical_devices("GPU")
     for gpu in gpus:

@@ -50,7 +50,10 @@ def build_cnn(size=128, n_classes=3, learning_rate=0.001):
 
 
 def _mobilenet_input(size):
-    """Entrada em escala de cinzento adaptada ao que a MobileNetV2 espera: 3 canais com valores em [-1, 1]."""
+    """Entrada em escala de cinzento adaptada ao que a MobileNetV2 espera: 3 canais com valores em [-1, 1].
+
+    A mesma conversão é feita em numpy em extract_features (se mudar aqui, mudar lá também).
+    """
     inputs = layers.Input((size, size, 1))
     x = layers.Concatenate()([inputs, inputs, inputs])   # repetir o canal cinzento 3 vezes (RGB)
     x = layers.Rescaling(2.0, offset=-1.0)(x)              # [0, 1] -> [-1, 1]
@@ -109,7 +112,7 @@ def extract_features(*image_sets, batch_size=32):
                                           pooling="avg")
     features = []
     for images in image_sets:
-        rgb = np.repeat(images[..., None], 3, axis=-1) * 2.0 - 1.0   # cinzento -> 3 canais em [-1, 1]
+        rgb = np.repeat(images[..., None], 3, axis=-1) * 2.0 - 1.0   # cinzento -> 3 canais em [-1, 1], como _mobilenet_input
         features.append(base.predict(rgb, batch_size=batch_size, verbose=0))
     del base
     keras.backend.clear_session()

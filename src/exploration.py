@@ -6,13 +6,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 
-from .data import CLASSES
+from .data import CLASSES, label_from_name
 
 
 def list_images(path):
     """Devolve os nomes dos ficheiros e as classes (tiradas do nome, ex.: "benign (12).png")."""
     names = sorted(os.listdir(path))
-    return names, [name.split(" ")[0] for name in names]
+    return names, [label_from_name(name) for name in names]
 
 
 def class_counts(labels):
