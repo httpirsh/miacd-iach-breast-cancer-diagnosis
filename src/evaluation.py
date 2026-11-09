@@ -28,11 +28,6 @@ def save_json(data, path):
         json.dump(data, f, indent=2)
 
 
-def load_json(path):
-    with open(path) as f:
-        return json.load(f)
-
-
 def plot_confusion_matrix(y_true, y_pred, title="Confusion Matrix"):
     fig, ax = plt.subplots(figsize=(6, 5))
     ConfusionMatrixDisplay.from_predictions(y_true, y_pred, labels=range(len(CLASSES)), display_labels=CLASSES,

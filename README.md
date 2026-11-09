@@ -45,7 +45,6 @@ Identificar casos de cancro da mama a partir de ecografias mamárias, com foco e
 ├── docs/
 │   ├── projeto/                     # enunciado 2026/27, a nossa proposta, checklist, análise
 │   ├── rag/                         # documentos médicos usados pelo chatbot
-│   ├── exemplos_artigos/            # artigos de exemplo indicados pelo professor
 │   └── dataset/                     # metadados e licença do dataset
 ├── report/                          # relatório final em LaTeX (template IJCAI-ECAI 26)
 ├── results/                         # métricas guardadas pelos notebooks (criada ao correr)
@@ -84,4 +83,12 @@ A primeira célula de cada notebook de treino chama `setup_gpu()` (`src/gpu.py`)
 
 ### Chatbot (notebook 04)
 
-O chatbot usa o LLM do [IAedu](https://iaedu.pt) (acesso com as credenciais da universidade). No IAedu, criar um agente; na conversa modelo do agente, em engrenagem → «Informação da API», copiar a chave, o identificador do agente e o do canal para um ficheiro `.env` na raiz do repositório, seguindo o `.env.example`. O `.env` está no `.gitignore`: a chave nunca vai para o git. Sem `.env` ou sem documentos em `docs/rag/`, o resto do notebook 04 corre na mesma. Na primeira execução, o modelo de embeddings (~220 MB) é descarregado.
+O chatbot usa o LLM do [IAedu](https://iaedu.pt) (acesso com as credenciais da universidade). No IAedu, criar um agente; na conversa modelo do agente, em engrenagem → «Informação da API», copiar a chave, o identificador do agente e o do canal para um ficheiro `.env` na raiz do repositório:
+
+```
+IAEDU_API_KEY=...
+IAEDU_AGENT_ID=...
+IAEDU_CHANNEL_ID=...
+```
+
+O `.env` está no `.gitignore`: a chave nunca vai para o git. Sem `.env` ou sem documentos em `docs/rag/`, o resto do notebook 04 corre na mesma. Na primeira execução, o modelo de embeddings (~220 MB) é descarregado.

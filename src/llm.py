@@ -2,7 +2,7 @@
 
 No IAedu (https://iaedu.pt) cria-se um agente e, na conversa modelo do agente, em engrenagem →
 «Informação da API», copiam-se três valores para um ficheiro `.env` na raiz do repositório
-(o `.env` está no .gitignore e nunca vai para o git; ver `.env.example`):
+(o `.env` está no .gitignore e nunca vai para o git):
 
     IAEDU_API_KEY=...
     IAEDU_AGENT_ID=...
@@ -40,7 +40,7 @@ class IAedu:
         load_dotenv(ROOT / ".env")
         missing = [v for v in VARIABLES if not os.environ.get(v)]
         if missing:
-            raise RuntimeError(f"Faltam variáveis no .env: {', '.join(missing)} (ver src/llm.py e .env.example)")
+            raise RuntimeError(f"Faltam variáveis no .env: {', '.join(missing)} (ver o README)")
         self._key = os.environ["IAEDU_API_KEY"]
         self.agent_id = os.environ["IAEDU_AGENT_ID"]
         self.channel_id = os.environ["IAEDU_CHANNEL_ID"]
