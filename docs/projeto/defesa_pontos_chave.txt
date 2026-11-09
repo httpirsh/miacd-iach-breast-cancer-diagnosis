@@ -1,0 +1,110 @@
+PONTOS-CHAVE PARA A DEFESA
+Projeto HCAI 2026/27: Diagnóstico de cancro da mama com Active Learning e Human-in-the-Loop
+
+Critérios de avaliação do enunciado: relevância do tema, significância das contribuições,
+originalidade, solidez técnica (experiências, software, conclusões) e clareza (relatório e
+instruções para correr).
+
+
+1. LEAKAGE ESCONDIDO NUM DATASET PÚBLICO (o achado mais forte)
+------------------------------------------------------------------
+- O BUSI tem 780 ficheiros, mas só 601 ecografias diferentes. Há imagens repetidas com
+  recortes diferentes, e 19 aparecem com labels contraditórias (benigno num ficheiro,
+  maligno noutro). Isto não está documentado no dataset.
+- Com a divisão por ecografia, a accuracy da MobileNetV2 desce de 0.84 para 0.80 e a
+  poupança de 24% em anotações com Active Learning desaparece.
+- Como o descobrimos: ao inspecionar os falsos negativos, vimos imagens de teste iguais a
+  imagens de treino. Olhar para os erros do modelo, e não só para as métricas, é uma
+  prática centrada no humano.
+- Critérios: originalidade e solidez técnica. O grupo pôs em causa os próprios resultados.
+
+
+2. UM RESULTADO NEGATIVO, MAS RIGOROSO
+---------------------------------------
+- Nenhuma estratégia bate a escolha ao acaso.
+- Pergunta provável: "então o AL não funcionou?". Resposta: o contributo é o protocolo
+  (divisão por grupos, baseline aleatória, 20 repetições emparelhadas, recall de maligno
+  além da accuracy), que mostra que muitos ganhos do AL publicados podem ser artefactos.
+- Números: com 270 anotações, a escolha ao acaso tem accuracy 0.805, contra 0.783-0.788
+  das outras estratégias. Na curva toda, o acaso fica à frente em 16 de 20 repetições
+  contra a least confidence e em 14 de 20 contra a margin e a malignant.
+- Comparar com Faria et al. (trabalho da UC): poupanças de 57-60% em dados tabulares, que
+  não se transferem para este problema.
+
+
+3. "INCERTEZA NÃO É RISCO" (a ligação mais direta a HCAI)
+---------------------------------------------------------
+- As estratégias clássicas gastam perguntas ao médico em imagens entre normal e benigno,
+  onde um erro custa pouco.
+- A least confidence deteta menos cancros no início (com 100 anotações: 58% dos cancros,
+  contra 65% na escolha ao acaso).
+- Medindo só a accuracy, não teríamos visto isto. A escolha das métricas é uma
+  escolha de valores.
+- A estratégia "malignant" (nossa) é a parte original: mostra que perguntar sobre mais
+  cancros não é o mesmo que aprender a detetá-los.
+
+
+4. O PAPEL DO HUMANO
+--------------------
+- O Human-in-the-Loop é real (HUMAN = True no notebook 02): o modelo aprende com a label
+  que o humano dá.
+- O AL manda ao humano precisamente as imagens mais ambíguas, onde até os especialistas
+  discordam (as labels contraditórias do BUSI são a prova).
+- Há o risco de viés de automação quando se mostra a sugestão do modelo.
+- Mesmo o melhor modelo falha 12 em 39 cancros. O sistema apoia o médico, não o
+  substitui.
+
+
+5. GRAD-CAM E AGENTE
+--------------------
+- Grad-CAM, comparado com as lesões contornadas pelos médicos: nos cancros detetados, 35%
+  do mapa cai dentro da lesão (a lesão ocupa 18% da imagem). Nos cancros falhados, só 24%.
+- O modelo engana-se com confiança: 3 dos 10 cancros falhados são "benignos" com 97% ou
+  mais. A confiança do modelo não pode ser o único critério para chamar o médico.
+- Agente: um caso vai para o médico se o modelo disser maligno ou se a confiança for
+  menor que 0.88 (escolhido na validação, nunca no teste). No teste, o médico vê 55% dos
+  casos e 36 dos 39 cancros chegam até ele. Os 3 que escapam ficam no registo que o
+  médico revê (human-on-the-loop).
+- Chatbot (RAG com o LLM do IAedu): responde só com base nos documentos e cita-os, nunca
+  dá diagnóstico. Na primeira versão respondeu "Não." a "tenho cancro?" para um caso
+  benigno a 99%; acrescentámos a regra de nunca responder sim ou não. Bom exemplo de
+  falsa tranquilização.
+- Liga o trabalho à comunicação com o paciente e à ética.
+
+
+6. CLAREZA E REPRODUTIBILIDADE
+------------------------------
+- Código partilhado em src/, resultados guardados em JSON, figuras do relatório geradas
+  por um script a partir desses resultados, e um README que explica como correr tudo.
+- Dizer isto numa frase: conta no critério de clareza das instruções.
+
+
+PERGUNTAS DIFÍCEIS A PREPARAR
+-----------------------------
+- Teste pequeno: são 39 malignos, e um falso negativo muda o recall em 2,6 pontos.
+  Só usámos uma divisão.
+- "As diferenças são reais?": com 20 repetições, 12-13 em 20 (recall de maligno na curva
+  toda) está perto do que daria o acaso (10). A diferença clara é a do início (58% contra
+  65% com 100 anotações) e a da accuracy (16 em 20). Já o admitimos nas limitações.
+- Grad-CAM e agente usam só um modelo (seed 1), e o chatbot ainda não foi avaliado com
+  pacientes nem médicos.
+- Escolha do modelo: as configurações preliminares foram escolhidas olhando para o teste
+  da primeira divisão. Já o admitimos nas limitações.
+- AL com features congeladas: usámos uma regressão logística sobre features congeladas,
+  não a rede afinada, e a conclusão pode não se transferir para o fine-tuning.
+- Limiar de 0.95: porque 0.95 para considerar duas imagens a mesma ecografia? É manual.
+  Boa resposta: mostrar exemplos dos grupos no notebook 00.
+
+
+ORDEM SUGERIDA PARA A APRESENTAÇÃO
+----------------------------------
+1. Problema clínico (custo assimétrico dos erros)
+2. Descoberta das imagens repetidas
+3. Resultado do AL
+4. "Incerteza não é risco"
+5. Papel do humano
+6. Grad-CAM e agente
+7. Limitações
+
+História: "o que parecia um ganho era um artefacto, e o que o modelo pergunta ao médico
+importa".
