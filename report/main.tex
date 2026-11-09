@@ -109,7 +109,8 @@ the human's answer;
 \item explain the predictions with Grad-CAM and check, against the lesion outlines, whether
 the model looks at the lesion; and
 \item build a patient-facing agent prototype that decides when the clinician must see a
-case and answers the patient's questions from trusted documents.
+case, keeping the clinician in the loop for suspicious cases and on the loop for the rest,
+and answers the patient's questions from trusted documents.
 \end{enumerate}
 
 The main findings are negative and, we argue, important for human-centred AI. Repeated
@@ -163,7 +164,10 @@ recognition for self-driving cars.
 Shneiderman~\shortcite{shneiderman2020hcai} argues that high automation and high human
 control are compatible, and that trustworthy systems keep humans in charge of consequential
 decisions. Holzinger~\shortcite{holzinger2016interactive} discusses when a human in the loop
-helps machine learning in health informatics. Showing the model's suggestion to the human can cause
+helps machine learning in health informatics. The human can be involved at two levels. In
+HitL decision making, the human decides or approves before a
+decision takes effect. In \emph{Human-on-the-Loop} (HotL), the system decides on its own and
+the human supervises its decisions and can correct them afterwards. Showing the model's suggestion to the human can cause
 automation bias~\cite{goddard2012automation}. Retrieval-augmented generation (RAG) grounds
 the answers of a language model in retrieved documents, which makes them easier to verify
 and reduces invented content~\cite{lewis2020rag}.
@@ -344,11 +348,11 @@ each ultrasound image it:
 \item classifies the image with the MobileNetV2 of seed 1 and shows the Grad-CAM;
 \item applies a \textbf{referral rule}: the case goes to the clinician if the model predicts
 \emph{malignant} or if the probability of the predicted class (its \emph{confidence}) is
-below a threshold $\tau$. No result is then communicated to the patient, which keeps the
-clinician \emph{in} the loop;
+below a threshold $\tau$. No result is then communicated to the patient before the
+clinician sees the case: this is \textbf{Human-in-the-Loop};
 \item decides the remaining cases (normal or benign with high confidence) on its own, but
-writes every case to a log that the clinician reviews and corrects. This keeps the
-clinician \emph{on} the loop;
+writes every case to a log that the clinician reviews and corrects: this is
+\textbf{Human-on-the-Loop};
 \item answers the patient's questions with a chatbot.
 \end{enumerate}
 The threshold $\tau$ is the smallest value, in steps of 0.01, with which at least 95\% of
@@ -614,7 +618,9 @@ behaves similarly (Table~\ref{tab:agent}). The clinician sees 82 of the 149 imag
 and 36 of the 39 cancers reach them: the 29 the model detects and 7 of the 10 it misses.
 The other 67 images are decided without the clinician, and 8 of these decisions are wrong.
 Five benign images are called normal, and three cancers are called benign with a confidence
-of 97--99\%. These three are the cases the clinician's review of the log has to catch.
+of 97--99\%. These three are the cases the clinician's review of the log has to catch,
+which is why the automatic decisions stay under Human-on-the-Loop supervision rather than
+being final.
 
 \begin{table}[t]
 \centering
@@ -765,7 +771,7 @@ a label saving~\cite{shneiderman2020hcai}. \emph{Explainability}: showing where 
 looked lets the clinician tell a misjudged lesion from an overlooked one, and checking the
 maps against the clinicians' outlines tests the explanation itself. \emph{Human control and
 communication}: the agent keeps the clinician in the loop for suspicious and uncertain
-cases and on the loop for the rest, and talks to the patient without ever giving a
+cases and on the loop (reviewing the log) for the rest, and talks to the patient without ever giving a
 diagnosis.
 
 \paragraph{Future work.}
