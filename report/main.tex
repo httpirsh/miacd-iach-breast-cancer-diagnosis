@@ -76,19 +76,19 @@ lesions and as a first exam in dense breasts and younger women. Reading it, howe
 depends on the operator and demands experience, which motivates computer-aided diagnosis.
 
 \subsection{Problem description}
-Convolutional neural networks (CNNs) report high accuracies on breast ultrasound
-classification~\cite{heliyon2023fusion}, but two obstacles separate these
+Convolutional neural networks (CNNs) are the usual approach to classify breast ultrasound
+images, but two obstacles separate these
 results from clinical use. First, CNNs need many \emph{labelled} images, and each label
 costs a specialist's time. Second, a model that decides without involving the clinician is
 hard to trust, audit or correct. In a high-stakes domain the human must keep control of
-the decision~\cite{shneiderman2020hcai,holzinger2016interactive}.
+the decision~\cite{shneiderman2020hcai}.
 
 Active Learning addresses the first obstacle. The model selects the unlabelled images whose
 labels it expects to be most useful and asks an expert to label them~\cite{settles2009survey}.
 Because the expert is consulted inside the training loop, AL is also a form of
 Human-in-the-Loop (HitL) machine learning~\cite{budd2021survey,hcai_slides_hitl}.
 Evaluating AL fairly requires care. If copies of an image end up in both the training and
-test sets, test scores are inflated by data leakage~\cite{kaufman2012leakage}. Without a
+test sets, test scores are inflated by data leakage. Without a
 random-sampling baseline, a gain cannot be attributed to the choice of images. And accuracy
 alone hides the error that matters most clinically: the false negative, a cancer classified
 as benign or normal.
@@ -131,9 +131,7 @@ in the loop for suspicious cases and on the loop for the rest.
 
 \paragraph{Breast ultrasound classification.}
 The Breast Ultrasound Images (BUSI) dataset is the most used public benchmark for this
-task~\cite{aldhabyani2020busi}. Reported results vary widely. A CNN feature extractor
-combined with an SVM reached 95.6\% accuracy on benign versus malignant
-images~\cite{heliyon2023fusion}. Such figures should be read with care. BUSI is small and contains
+task~\cite{aldhabyani2020busi}. Published accuracies on it should be read with care: BUSI is small and contains
 duplicates and images with annotations burned in by the scanner~\cite{pawlowska2024curated}.
 Many pipelines augment before splitting, so leaked copies can inflate test scores, and a CNN
 can learn shortcuts unrelated to the lesion. With few images, the
@@ -164,8 +162,7 @@ recognition for self-driving cars.
 \paragraph{Human-centred AI.}
 Shneiderman~\shortcite{shneiderman2020hcai} argues that high automation and high human
 control are compatible, and that trustworthy systems keep humans in charge of consequential
-decisions. Holzinger~\shortcite{holzinger2016interactive} discusses when a human in the loop
-helps machine learning in health informatics. The human can be involved at two levels. In
+decisions. The human can be involved at two levels. In
 HitL decision making, the human decides or approves before a
 decision takes effect. In \emph{Human-on-the-Loop} (HotL), the system decides on its own and
 the human supervises its decisions and can correct them afterwards. Showing the model's suggestion to the human can cause
@@ -179,7 +176,7 @@ and reduces invented content~\cite{lewis2020rag}.
 
 \subsection{Dataset}
 We use the BUSI dataset~\cite{aldhabyani2020busi}, distributed by Dataset Ninja under a
-CC0~1.0 licence~\cite{datasetninja}. It contains 780 PNG images from 600 women aged 25 to
+CC0~1.0 licence\footnote{\url{https://datasetninja.com/breast-ultrasound-images}}. It contains 780 PNG images from 600 women aged 25 to
 75, acquired in 2018. Radiologists labelled them as \emph{normal} (133), \emph{benign} (437)
 or \emph{malignant} (210), and the class is given by the file name. Every benign and
 malignant image comes with a mask of the lesion drawn by clinicians. Image sizes range from
@@ -236,7 +233,7 @@ file of an already-labelled scan, would waste their time.
 The project is written in Python with TensorFlow/Keras, scikit-learn and modAL, the AL
 library that provides the query strategies~\cite{danka2018modal}. The chatbot uses fastembed
 for sentence embeddings and the IAedu platform, which FCT provides to Portuguese higher
-education, for the language model~\cite{iaedu}. The experiments run from five Jupyter
+education, for the language model\footnote{\url{https://iaedu.pt}}. The experiments run from five Jupyter
 notebooks on a laptop with a 4\,GB NVIDIA RTX~3050 GPU and 13\,GB of RAM.
 
 % =====================================================================================
