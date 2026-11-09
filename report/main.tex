@@ -70,16 +70,14 @@ and answers questions from trusted documents. Code and results:
 
 \subsection{Motivation}
 Breast cancer is the most frequently diagnosed cancer in women worldwide and the leading
-cause of cancer death among them~\cite{bray2024globocan}. In Portugal, about 9{,}000 new
-cases are detected and more than 2{,}000 women die from the disease every year; around 1\%
-of the cases occur in men~\cite{lpcc}. Survival depends strongly on how early the disease
+cause of cancer death among them~\cite{bray2024globocan}. Survival depends strongly on how early the disease
 is found. Ultrasound is a widely available exam without radiation, used to characterise
 lesions and as a first exam in dense breasts and younger women. Reading it, however,
 depends on the operator and demands experience, which motivates computer-aided diagnosis.
 
 \subsection{Problem description}
 Convolutional neural networks (CNNs) report high accuracies on breast ultrasound
-classification~\cite{heliyon2023fusion,kaggle_anaya}, but two obstacles separate these
+classification~\cite{heliyon2023fusion}, but two obstacles separate these
 results from clinical use. First, CNNs need many \emph{labelled} images, and each label
 costs a specialist's time. Second, a model that decides without involving the clinician is
 hard to trust, audit or correct. In a high-stakes domain the human must keep control of
@@ -88,7 +86,7 @@ the decision~\cite{shneiderman2020hcai,holzinger2016interactive}.
 Active Learning addresses the first obstacle. The model selects the unlabelled images whose
 labels it expects to be most useful and asks an expert to label them~\cite{settles2009survey}.
 Because the expert is consulted inside the training loop, AL is also a form of
-Human-in-the-Loop (HitL) machine learning~\cite{mosqueira2023hitl,budd2021survey}.
+Human-in-the-Loop (HitL) machine learning~\cite{budd2021survey,hcai_slides_hitl}.
 Evaluating AL fairly requires care. If copies of an image end up in both the training and
 test sets, test scores are inflated by data leakage~\cite{kaufman2012leakage}. Without a
 random-sampling baseline, a gain cannot be attributed to the choice of images. And accuracy
@@ -133,25 +131,24 @@ clinician in charge of the decisions that matter.
 The Breast Ultrasound Images (BUSI) dataset is the most used public benchmark for this
 task~\cite{aldhabyani2020busi}. Reported results vary widely. A CNN feature extractor
 combined with an SVM reached 95.6\% accuracy on benign versus malignant
-images~\cite{heliyon2023fusion}, and public notebooks report accuracies above
-99\%~\cite{kaggle_cbis}. Such figures should be read with care. BUSI is small and contains
+images~\cite{heliyon2023fusion}. Such figures should be read with care. BUSI is small and contains
 duplicates and images with annotations burned in by the scanner~\cite{pawlowska2024curated}.
 Many pipelines augment before splitting, so leaked copies can inflate test scores, and a CNN
-can learn shortcuts unrelated to the lesion~\cite{geirhos2020shortcut}. With few images, the
+can learn shortcuts unrelated to the lesion. With few images, the
 usual remedy is transfer learning from networks pre-trained on ImageNet, such as
-MobileNetV2~\cite{deng2009imagenet,sandler2018mobilenetv2}.
+MobileNetV2~\cite{sandler2018mobilenetv2}.
 
 \paragraph{Active Learning.}
 In pool-based AL, a model trained on a small labelled set scores a pool of unlabelled
 examples with a \emph{query strategy} and requests labels for the best-scored
 ones~\cite{settles2009survey}. The classic strategies --- least confidence, margin and
 entropy --- all query the examples the model is most uncertain
-about~\cite{lewis1994sequential,scheffer2001margin,shannon1948}. Random sampling is the
+about~\cite{settles2009survey}. Random sampling is the
 baseline any strategy must beat. Budd et al.~\shortcite{budd2021survey} survey AL and HitL
 for medical image analysis and note that most studies simulate the human with ground-truth
 labels, as we do in the quantitative experiments. The modAL library implements these
 strategies in Python and includes an interactive-labelling example in Jupyter, on which our
-HitL interface is based~\cite{danka2018modal,modal_interactive}.
+HitL interface is based~\cite{danka2018modal}.
 
 \paragraph{AL for medical diagnosis at the University of Coimbra.}
 Pinto et al.~\shortcite{pinto2022active} combined modAL with a neural network to diagnose 41
@@ -166,9 +163,7 @@ recognition for self-driving cars.
 Shneiderman~\shortcite{shneiderman2020hcai} argues that high automation and high human
 control are compatible, and that trustworthy systems keep humans in charge of consequential
 decisions. Holzinger~\shortcite{holzinger2016interactive} discusses when a human in the loop
-helps machine learning in health informatics. Mosqueira-Rey et
-al.~\shortcite{mosqueira2023hitl} classify HitL paradigms; AL is the one in which the
-machine drives the interaction. Showing the model's suggestion to the human can cause
+helps machine learning in health informatics. Showing the model's suggestion to the human can cause
 automation bias~\cite{goddard2012automation}. Retrieval-augmented generation (RAG) grounds
 the answers of a language model in retrieved documents, which makes them easier to verify
 and reduces invented content~\cite{lewis2020rag}.
@@ -254,18 +249,18 @@ instead of 367\,MB, and MobileNetV2 did not perform better at $224\times224$.
 \subsection{Passive learning models}
 \paragraph{CNN trained from scratch.}
 Four convolutional blocks with 32, 64, 128 and 32 filters of size $4\times4$, each with
-ReLU, batch normalisation and max pooling~\cite{ioffe2015batchnorm}. Dropout of 0.3 follows
-the second and third blocks~\cite{srivastava2014dropout}, and then a 32-unit dense layer and
+ReLU, batch normalisation and max pooling. Dropout of 0.3 follows
+the second and third blocks, and then a 32-unit dense layer and
 a softmax output with one probability per class. It is trained with Adam and a learning
-rate of $0.001$~\cite{kingma2015adam}. Early stopping ends training when the validation loss
+rate of $0.001$. Early stopping ends training when the validation loss
 has not improved for 10 epochs (at most 60), and the best weights are
-kept~\cite{prechelt1998early}.
+kept.
 
 \paragraph{MobileNetV2 with transfer learning.}
 With fewer than 400 distinct training scans, learning visual features from scratch is hard.
 MobileNetV2, pre-trained on over a million ImageNet images, already detects edges, textures
 and shapes, and is small enough for our 4\,GB
-GPU~\cite{sandler2018mobilenetv2,deng2009imagenet}. The grey image is repeated over three
+GPU~\cite{sandler2018mobilenetv2}. The grey image is repeated over three
 channels, as the network expects, and a new output layer for our three classes is added.
 Training has two phases, both with early stopping. (1)~The pre-trained network is frozen
 and only the new layer is trained (learning rate $0.001$). (2)~In \emph{fine-tuning}, the
@@ -363,7 +358,7 @@ not on the test set, so that the test set still measures the rule on new images.
 The chatbot uses RAG~\cite{lewis2020rag}. Medical documents for patients are split into
 chunks of about 800 characters. Each chunk is turned into a vector with a multilingual
 sentence-embedding model (\texttt{paraphrase-multilingual-MiniLM-L12-v2}), which works in
-Portuguese~\cite{reimers2020multilingual}. For each question, the four chunks with the most
+Portuguese. For each question, the four chunks with the most
 similar vectors are sent to the language model together with the question and a set of
 rules. The model must write plain European Portuguese and use only the excerpts, citing them
 by number. It must never give a diagnosis, never answer ``yes'' or ``no'' to ``do I have
@@ -775,7 +770,7 @@ diagnosis.
 
 \paragraph{Future work.}
 (i)~Query strategies that weigh uncertainty by the cost of each error and avoid redundant
-images~\cite{sener2018coreset}; (ii)~showing the Grad-CAM with each AL query, so the expert
+images; (ii)~showing the Grad-CAM with each AL query, so the expert
 can see whether the model looked at the lesion, and finer maps at higher resolution;
 (iii)~AL with the fine-tuned network and repeated grouped splits; and (iv)~a study with
 clinicians and patients, measuring labelling time, the effect of showing the model's

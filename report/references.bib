@@ -3,15 +3,6 @@
 % check authors/pages against the publisher page before submission.
 
 % ---------------------------------------------------------------- Context / medicine
-@misc{lpcc,
-  author       = {{Liga Portuguesa Contra o Cancro}},
-  title        = {Cancro da Mama},
-  howpublished = {\url{https://www.ligacontracancro.pt/cancro-da-mama/}},
-  note         = {Accessed: 2026-11-03},
-  year         = {2026}
-}
-
-% VERIFY
 @article{bray2024globocan,
   author  = {Bray, Freddie and Laversanne, Mathieu and Sung, Hyuna and Ferlay, Jacques and Siegel, Rebecca L. and Soerjomataram, Isabelle and Jemal, Ahmedin},
   title   = {Global cancer statistics 2022: {GLOBOCAN} estimates of incidence and mortality worldwide for 36 cancers in 185 countries},
@@ -60,70 +51,12 @@
   note    = {\url{https://www.sciencedirect.com/science/article/pii/S2405844023096147}}
 }
 
-@misc{kaggle_anaya,
-  author       = {Anaya, Basel},
-  title        = {Breast Cancer Detection using {CNN}},
-  howpublished = {Kaggle notebook, \url{https://www.kaggle.com/code/baselanaya/breast-cancer-detection-using-cnn}},
-  year         = {n.d.}
-}
-
-@misc{kaggle_cbis,
-  author       = {{hajimins}},
-  title        = {{CBIS-DDSM}: Breast Cancer Image Dataset},
-  howpublished = {Kaggle notebook, \url{https://www.kaggle.com/code/hajimins/still-final-for-now}},
-  year         = {n.d.}
-}
-
-% ---------------------------------------------------------------- Active learning
 @techreport{settles2009survey,
   author      = {Settles, Burr},
   title       = {Active Learning Literature Survey},
   institution = {University of Wisconsin--Madison, Department of Computer Sciences},
   number      = {1648},
   year        = {2009}
-}
-
-@inproceedings{lewis1994sequential,
-  author    = {Lewis, David D. and Gale, William A.},
-  title     = {A Sequential Algorithm for Training Text Classifiers},
-  booktitle = {Proceedings of the 17th Annual International ACM SIGIR Conference on Research and Development in Information Retrieval},
-  pages     = {3--12},
-  year      = {1994}
-}
-
-@inproceedings{scheffer2001margin,
-  author    = {Scheffer, Tobias and Decomain, Christian and Wrobel, Stefan},
-  title     = {Active Hidden {M}arkov Models for Information Extraction},
-  booktitle = {Advances in Intelligent Data Analysis (IDA 2001)},
-  series    = {LNCS},
-  volume    = {2189},
-  pages     = {309--318},
-  year      = {2001}
-}
-
-@article{shannon1948,
-  author  = {Shannon, Claude E.},
-  title   = {A Mathematical Theory of Communication},
-  journal = {Bell System Technical Journal},
-  volume  = {27},
-  number  = {3},
-  pages   = {379--423},
-  year    = {1948}
-}
-
-@inproceedings{gal2017deep,
-  author    = {Gal, Yarin and Islam, Riashat and Ghahramani, Zoubin},
-  title     = {Deep {B}ayesian Active Learning with Image Data},
-  booktitle = {Proceedings of the 34th International Conference on Machine Learning (ICML)},
-  pages     = {1183--1192},
-  year      = {2017}
-}
-
-@inproceedings{sener2018coreset,
-  author    = {Sener, Ozan and Savarese, Silvio},
-  title     = {Active Learning for Convolutional Neural Networks: A Core-Set Approach},
-  booktitle = {International Conference on Learning Representations (ICLR)},
-  year      = {2018}
 }
 
 @article{budd2021survey,
@@ -140,13 +73,6 @@
   title   = {{modAL}: A modular active learning framework for {P}ython},
   journal = {arXiv preprint arXiv:1805.00979},
   year    = {2018}
-}
-
-@misc{modal_interactive,
-  author       = {{modAL}},
-  title        = {Interactive labeling with {J}upyter},
-  howpublished = {\url{https://modal-python.readthedocs.io/en/latest/content/examples/interactive_labeling.html}},
-  year         = {n.d.}
 }
 
 @inproceedings{pinto2022active,
@@ -195,15 +121,6 @@
   year    = {2016}
 }
 
-@article{mosqueira2023hitl,
-  author  = {Mosqueira-Rey, Eduardo and Hern{\'a}ndez-Pereira, Elena and Alonso-R{\'i}os, David and Bobes-Bascar{\'a}n, Jos{\'e} and Fern{\'a}ndez-Leal, {\'A}ngel},
-  title   = {Human-in-the-loop machine learning: a state of the art},
-  journal = {Artificial Intelligence Review},
-  volume  = {56},
-  pages   = {3005--3054},
-  year    = {2023}
-}
-
 @misc{hcai_slides_hitl,
   author       = {Macedo, Lu{\'i}s},
   title        = {Human--{AI} Cooperation: Human-in-the-Loop vs. Machine-in-the-Loop},
@@ -228,68 +145,6 @@
   booktitle = {IEEE International Conference on Computer Vision (ICCV)},
   pages     = {618--626},
   year      = {2017}
-}
-
-@article{geirhos2020shortcut,
-  author  = {Geirhos, Robert and Jacobsen, J{\"o}rn-Henrik and Michaelis, Claudio and Zemel, Richard and Brendel, Wieland and Bethge, Matthias and Wichmann, Felix A.},
-  title   = {Shortcut learning in deep neural networks},
-  journal = {Nature Machine Intelligence},
-  volume  = {2},
-  pages   = {665--673},
-  year    = {2020}
-}
-
-@article{zech2018confounding,
-  author  = {Zech, John R. and Badgeley, Marcus A. and Liu, Manway and Costa, Anthony B. and Titano, Joseph J. and Oermann, Eric Karl},
-  title   = {Variable generalization performance of a deep learning model to detect pneumonia in chest radiographs: A cross-sectional study},
-  journal = {PLoS Medicine},
-  volume  = {15},
-  number  = {11},
-  pages   = {e1002683},
-  year    = {2018}
-}
-
-% ---------------------------------------------------------------- Deep learning / evaluation
-@inproceedings{kingma2015adam,
-  author    = {Kingma, Diederik P. and Ba, Jimmy},
-  title     = {Adam: A Method for Stochastic Optimization},
-  booktitle = {International Conference on Learning Representations (ICLR)},
-  year      = {2015}
-}
-
-@inproceedings{ioffe2015batchnorm,
-  author    = {Ioffe, Sergey and Szegedy, Christian},
-  title     = {Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift},
-  booktitle = {Proceedings of the 32nd International Conference on Machine Learning (ICML)},
-  pages     = {448--456},
-  year      = {2015}
-}
-
-@article{srivastava2014dropout,
-  author  = {Srivastava, Nitish and Hinton, Geoffrey and Krizhevsky, Alex and Sutskever, Ilya and Salakhutdinov, Ruslan},
-  title   = {Dropout: A Simple Way to Prevent Neural Networks from Overfitting},
-  journal = {Journal of Machine Learning Research},
-  volume  = {15},
-  pages   = {1929--1958},
-  year    = {2014}
-}
-
-@inproceedings{he2016resnet,
-  author    = {He, Kaiming and Zhang, Xiangyu and Ren, Shaoqing and Sun, Jian},
-  title     = {Deep Residual Learning for Image Recognition},
-  booktitle = {IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
-  pages     = {770--778},
-  year      = {2016}
-}
-
-@article{saito2015precision,
-  author  = {Saito, Takaya and Rehmsmeier, Marc},
-  title   = {The Precision-Recall Plot Is More Informative than the {ROC} Plot When Evaluating Binary Classifiers on Imbalanced Datasets},
-  journal = {PLoS ONE},
-  volume  = {10},
-  number  = {3},
-  pages   = {e0118432},
-  year    = {2015}
 }
 
 @article{kaufman2012leakage,
@@ -319,51 +174,6 @@
   booktitle = {IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
   pages     = {4510--4520},
   year      = {2018}
-}
-
-@inproceedings{deng2009imagenet,
-  author    = {Deng, Jia and Dong, Wei and Socher, Richard and Li, Li-Jia and Li, Kai and Fei-Fei, Li},
-  title     = {{ImageNet}: A large-scale hierarchical image database},
-  booktitle = {IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
-  pages     = {248--255},
-  year      = {2009}
-}
-
-@article{wilcoxon1945,
-  author  = {Wilcoxon, Frank},
-  title   = {Individual Comparisons by Ranking Methods},
-  journal = {Biometrics Bulletin},
-  volume  = {1},
-  number  = {6},
-  pages   = {80--83},
-  year    = {1945}
-}
-
-@incollection{prechelt1998early,
-  author    = {Prechelt, Lutz},
-  title     = {Early Stopping -- But When?},
-  booktitle = {Neural Networks: Tricks of the Trade},
-  series    = {LNCS},
-  volume    = {1524},
-  pages     = {55--69},
-  publisher = {Springer},
-  year      = {1998}
-}
-
-@article{yosinski2014transferable,
-  author  = {Yosinski, Jason and Clune, Jeff and Bengio, Yoshua and Lipson, Hod},
-  title   = {How transferable are features in deep neural networks?},
-  journal = {Advances in Neural Information Processing Systems (NeurIPS)},
-  volume  = {27},
-  year    = {2014}
-}
-
-@inproceedings{reimers2020multilingual,
-  author    = {Nils Reimers and Iryna Gurevych},
-  title     = {Making Monolingual Sentence Embeddings Multilingual using Knowledge Distillation},
-  booktitle = {Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing (EMNLP)},
-  pages     = {4512--4525},
-  year      = {2020}
 }
 
 @misc{iaedu,
