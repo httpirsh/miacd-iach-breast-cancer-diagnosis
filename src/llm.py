@@ -76,7 +76,6 @@ def parse_stream(lines):
     """Junta os pedaços de texto da resposta em streaming (um objeto JSON por linha)."""
     tokens, full_message = [], None
     for line in lines:
-        line = line[len("data:"):].strip() if line.startswith("data:") else line   # aceita também SSE
         try:
             event = json.loads(line)
         except ValueError:

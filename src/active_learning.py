@@ -11,7 +11,7 @@ from functools import partial
 
 import numpy as np
 from modAL.models import ActiveLearner
-from modAL.uncertainty import entropy_sampling, margin_sampling, uncertainty_sampling
+from modAL.uncertainty import margin_sampling, uncertainty_sampling
 from modAL.utils.selection import multi_argmax
 from PIL import Image
 from sklearn.linear_model import LogisticRegression
@@ -45,7 +45,6 @@ def malignant_sampling(classifier, X_pool, n_instances=1):
 STRATEGIES = {
     "random": random_sampling,
     "uncertainty": uncertainty_sampling,
-    "entropy": entropy_sampling,
     "margin": margin_sampling,
     "malignant": malignant_sampling,
 }

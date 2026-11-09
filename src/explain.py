@@ -1,11 +1,13 @@
-"""Explicabilidade: Grad-CAM sobre a MobileNetV2 treinada no notebook 01.
+"""Explicabilidade: mapas de onde a MobileNetV2 treinada no notebook 01 "olhou" para decidir (Grad-CAM).
 
-O Grad-CAM mostra que zonas da imagem mais pesaram na decisão do modelo:
-1. a imagem passa pela rede até uma camada convolucional, que dá um "mapa" de features (ex.: 4×4×1280);
-2. calcula-se o gradiente da probabilidade da classe em relação a esse mapa: quanto cada feature, em cada
-   zona, faz subir essa probabilidade;
-3. cada feature recebe um peso (a média do seu gradiente) e somam-se os mapas pesados;
-4. ficam só os valores positivos (zonas que aumentam a probabilidade da classe), normalizados para [0, 1].
+A última camada convolucional da MobileNetV2 dá, para cada uma de 4×4 zonas da imagem (em imagens
+128×128), 1280 números (features). O modelo faz a média de cada feature em todas as zonas e a camada final
+dá um peso a cada feature para cada classe. O mapa de uma classe é, em cada zona, a soma das features
+multiplicadas por esses pesos: as zonas com valores altos são as que mais fizeram subir a classe.
+
+Em geral, o Grad-CAM calcula estes pesos com gradientes. Nesta rede (média das zonas seguida de uma só
+camada final) os gradientes são exatamente os pesos da camada final divididos pelo nº de zonas, por isso
+o mapa é o mesmo e não é preciso calcular gradientes (é o CAM original, de que o Grad-CAM é a generalização).
 """
 
 import matplotlib.pyplot as plt
@@ -15,68 +17,42 @@ from tensorflow import keras
 
 from .data import CLASSES
 
-# Última camada convolucional da MobileNetV2 (mapa 4×4 em imagens 128×128). Camadas anteriores dão mapas
-# mais finos (8×8), mas acendem os cantos da imagem (efeito do padding) e coincidem menos com a lesão.
-LAYER = "out_relu"
-
 
 def load_model(path):
     return keras.models.load_model(path)
 
 
 class GradCAM:
-    """Calcula o mapa Grad-CAM de uma imagem para uma classe, com a MobileNetV2 de build_mobilenet."""
+    """Calcula o mapa de uma imagem para uma classe, com a MobileNetV2 de build_mobilenet."""
 
-    def __init__(self, model, layer=LAYER):
+    def __init__(self, model):
         self.model = model
-        index = next(i for i, l in enumerate(model.layers) if isinstance(l, keras.Model))
-        self.preprocess = model.layers[1:index]   # repetir o canal cinzento 3 vezes e reescalar para [-1, 1]
-        base = model.layers[index]
-        self.head = model.layers[index + 1:]      # pooling, dropout e camada de saída
-        # A rede base devolve o mapa da camada escolhida e a sua saída final
-        self.base = keras.Model(base.inputs, [base.get_layer(layer).output, base.output])
-
-    def predict(self, image):
-        """Probabilidades das 3 classes para uma imagem (size × size, valores em [0, 1])."""
-        return self.model.predict(image[None, ..., None], verbose=0)[0]
+        pooling = next(l for l in model.layers if isinstance(l, keras.layers.GlobalAveragePooling2D))
+        self.features = keras.Model(model.inputs, pooling.input)   # imagem -> 4×4×1280 features
+        self.kernel, self.bias = (w.numpy() for w in model.layers[-1].weights)   # pesos da camada final
 
     def __call__(self, image, class_index=None):
         """Devolve (mapa em [0, 1] com o tamanho da imagem, probabilidades). Sem class_index, explica a classe prevista."""
-        x = tf.convert_to_tensor(image[None, ..., None], dtype=tf.float32)
-        for layer in self.preprocess:
-            x = layer([x, x, x]) if isinstance(layer, keras.layers.Concatenate) else layer(x)
-        with tf.GradientTape() as tape:
-            feature_map, out = self.base(x, training=False)
-            tape.watch(feature_map)
-            for layer in self.head[:-1]:
-                out = layer(out, training=False)
-            dense = self.head[-1]
-            logits = tf.matmul(out, dense.kernel) + dense.bias   # score antes do softmax
-            probs = tf.nn.softmax(logits)[0]
-            if class_index is None:
-                class_index = int(tf.argmax(probs))
-            # Usa-se o score antes do softmax: quando o modelo tem ~100% de certeza, o softmax satura e os
-            # gradientes da probabilidade ficam quase nulos.
-            score = logits[0, class_index]
-        grads = tape.gradient(score, feature_map)[0]               # gradiente em cada zona e feature
-        weights = tf.reduce_mean(grads, axis=(0, 1))               # importância de cada feature
-        cam = tf.nn.relu(tf.reduce_sum(feature_map[0] * weights, axis=-1)).numpy()
+        features = self.features(image[None, ..., None], training=False).numpy()[0]
+        logits = features.mean(axis=(0, 1)) @ self.kernel + self.bias   # o mesmo que o modelo calcula
+        probs = np.exp(logits - logits.max())
+        probs /= probs.sum()
+        if class_index is None:
+            class_index = int(np.argmax(probs))
+        cam = np.maximum(features @ self.kernel[:, class_index], 0)   # só as zonas que fazem subir a classe
         cam = cam / cam.max() if cam.max() > 0 else cam
-        size = image.shape[:2]
-        cam = tf.image.resize(cam[..., None], size, method="bilinear").numpy()[..., 0]
-        return cam, probs.numpy()
+        cam = tf.image.resize(cam[..., None], image.shape[:2], method="bilinear").numpy()[..., 0]
+        return cam, probs
 
 
 def lesion_overlap(cam, mask):
-    """Compara o Grad-CAM com a lesão desenhada pelos médicos.
+    """Compara o mapa com a lesão desenhada pelos médicos.
 
     - energy: fração da "importância" total do mapa que cai dentro da lesão;
-    - area: fração da imagem ocupada pela lesão (o que um mapa uniforme, que não olha para nada, teria);
-    - hit: o ponto mais importante do mapa está dentro da lesão? ("pointing game")
+    - area: fração da imagem ocupada pela lesão (o que teria um mapa que não olha para nada em especial).
     """
     energy = float((cam * mask).sum() / cam.sum()) if cam.sum() > 0 else 0.0   # mapa vazio: não aponta para nada
-    return {"energy": energy, "area": float(mask.mean()),
-            "hit": bool(mask.flat[np.argmax(cam)])}
+    return {"energy": energy, "area": float(mask.mean())}
 
 
 def plot_grad_cam(explainer, images, y_true, indices, title, masks=None, per_row=4):

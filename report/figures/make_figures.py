@@ -34,7 +34,6 @@ plt.rcParams.update({
 STYLE = {
     "random":      dict(color="#8a8984", linestyle=(0, (4, 2)), label="random"),
     "uncertainty": dict(color="#2a78d6", linestyle="-", label="least confidence"),
-    "entropy":     dict(color="#eb6834", linestyle=(0, (1, 1.2)), label="entropy"),
     "margin":      dict(color="#1baf7a", linestyle="-.", label="margin"),
     "malignant":   dict(color="#6250d6", linestyle="-", label="malignant (ours)"),
 }
@@ -44,7 +43,7 @@ def learning_curves():
     data = json.load(open(RESULTS_PATH / "active_learning.json"))
     results, full = data["results"], data["full_pool"]
     fig, axs = plt.subplots(1, 2, figsize=(7.0, 2.6), constrained_layout=True)
-    for ax, metric, title in [(axs[0], "f1_macro", "Macro F1"), (axs[1], "recall_malignant", "Malignant recall")]:
+    for ax, metric, title in [(axs[0], "accuracy", "Accuracy"), (axs[1], "recall_malignant", "Malignant recall")]:
         for strategy, runs in results.items():
             n = np.array(runs[0]["n_labeled"])
             values = np.array([run[metric] for run in runs])
@@ -60,7 +59,7 @@ def learning_curves():
         ax.set_xlim(20, 270)
     axs[0].set_ylabel("Mean over 20 seeds")
     handles, labels = axs[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="outside lower center", ncol=6, frameon=False)
+    fig.legend(handles, labels, loc="outside lower center", ncol=5, frameon=False)
     fig.savefig(OUT / "al_learning_curves.pdf")
     plt.close(fig)
 

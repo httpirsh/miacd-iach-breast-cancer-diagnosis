@@ -4,7 +4,7 @@ import json
 
 import matplotlib.pyplot as plt
 import numpy as np
-from sklearn.metrics import ConfusionMatrixDisplay, accuracy_score, f1_score, recall_score
+from sklearn.metrics import ConfusionMatrixDisplay, accuracy_score, recall_score
 
 from .data import CLASSES
 
@@ -12,12 +12,10 @@ MALIGNANT = CLASSES.index("malignant")
 
 
 def compute_metrics(y_true, y_pred):
-    """Accuracy, recall/F1 macro, recall de maligno e falsos negativos (maligno previsto como outra classe)."""
+    """Accuracy, recall de maligno (fração dos cancros detetados) e falsos negativos (maligno previsto como outra classe)."""
     y_true, y_pred = np.asarray(y_true), np.asarray(y_pred)
     return {
         "accuracy": float(accuracy_score(y_true, y_pred)),
-        "recall_macro": float(recall_score(y_true, y_pred, average="macro", zero_division=0)),
-        "f1_macro": float(f1_score(y_true, y_pred, average="macro", zero_division=0)),
         "recall_malignant": float(recall_score(y_true == MALIGNANT, y_pred == MALIGNANT, zero_division=0)),
         "false_negatives": int(np.sum((y_true == MALIGNANT) & (y_pred != MALIGNANT))),
     }

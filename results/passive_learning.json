@@ -2,15 +2,11 @@
   "cnn": {
     "mean": {
       "accuracy": 0.6093959731543623,
-      "recall_macro": 0.6231722207331963,
-      "f1_macro": 0.5924856217856432,
       "recall_malignant": 0.7179487179487178,
       "false_negatives": 11.0
     },
     "std": {
       "accuracy": 0.059637207762478016,
-      "recall_macro": 0.0725405861602302,
-      "f1_macro": 0.06700307829647786,
       "recall_malignant": 0.09315847243376899,
       "false_negatives": 3.63318042491699
     },
@@ -20,7 +16,7 @@
         "epochs": [
           25
         ],
-        "seconds": 89,
+        "seconds": 90,
         "history": {
           "accuracy": [
             0.46846845746040344,
@@ -284,8 +280,6 @@
         ],
         "metrics": {
           "accuracy": 0.5906040268456376,
-          "recall_macro": 0.6243336609190268,
-          "f1_macro": 0.5886211754506375,
           "recall_malignant": 0.717948717948718,
           "false_negatives": 11
         }
@@ -551,8 +545,6 @@
         ],
         "metrics": {
           "accuracy": 0.6375838926174496,
-          "recall_macro": 0.6303939962476548,
-          "f1_macro": 0.6142728093947606,
           "recall_malignant": 0.7692307692307693,
           "false_negatives": 9
         }
@@ -562,7 +554,7 @@
         "epochs": [
           27
         ],
-        "seconds": 94,
+        "seconds": 95,
         "history": {
           "accuracy": [
             0.48841699957847595,
@@ -834,8 +826,6 @@
         ],
         "metrics": {
           "accuracy": 0.7114093959731543,
-          "recall_macro": 0.7501489025879269,
-          "f1_macro": 0.7069572125751901,
           "recall_malignant": 0.7948717948717948,
           "false_negatives": 8
         }
@@ -1113,8 +1103,6 @@
         ],
         "metrics": {
           "accuracy": 0.5503355704697986,
-          "recall_macro": 0.5775484677923702,
-          "f1_macro": 0.5329807026652821,
           "recall_malignant": 0.7692307692307693,
           "false_negatives": 9
         }
@@ -1416,8 +1404,6 @@
         ],
         "metrics": {
           "accuracy": 0.5570469798657718,
-          "recall_macro": 0.533436076119003,
-          "f1_macro": 0.5195962088423459,
           "recall_malignant": 0.5384615384615384,
           "false_negatives": 18
         }
@@ -1427,15 +1413,11 @@
   "mobilenet": {
     "mean": {
       "accuracy": 0.804026845637584,
-      "recall_macro": 0.7829432085529647,
-      "f1_macro": 0.7820234868690175,
       "recall_malignant": 0.6974358974358974,
       "false_negatives": 11.8
     },
     "std": {
       "accuracy": 0.02221871860033136,
-      "recall_macro": 0.02535511868088528,
-      "f1_macro": 0.02091046518790141,
       "recall_malignant": 0.04971979340939825,
       "false_negatives": 1.9390719429665315
     },
@@ -1814,8 +1796,6 @@
         ],
         "metrics": {
           "accuracy": 0.7986577181208053,
-          "recall_macro": 0.825389380267429,
-          "f1_macro": 0.7911313911313912,
           "recall_malignant": 0.7435897435897436,
           "false_negatives": 10
         }
@@ -1826,7 +1806,7 @@
           21,
           17
         ],
-        "seconds": 71,
+        "seconds": 72,
         "history": {
           "accuracy": [
             0.5353925228118896,
@@ -2142,8 +2122,6 @@
         ],
         "metrics": {
           "accuracy": 0.7785234899328859,
-          "recall_macro": 0.7594255338157777,
-          "f1_macro": 0.755386650586415,
           "recall_malignant": 0.6153846153846154,
           "false_negatives": 15
         }
@@ -2478,8 +2456,6 @@
         ],
         "metrics": {
           "accuracy": 0.8389261744966443,
-          "recall_macro": 0.7982593287471337,
-          "f1_macro": 0.8134023065538522,
           "recall_malignant": 0.717948717948718,
           "false_negatives": 11
         }
@@ -2822,8 +2798,6 @@
         ],
         "metrics": {
           "accuracy": 0.8187919463087249,
-          "recall_macro": 0.7614208284939993,
-          "f1_macro": 0.78761299040164,
           "recall_malignant": 0.6666666666666666,
           "false_negatives": 13
         }
@@ -3170,8 +3144,6 @@
         ],
         "metrics": {
           "accuracy": 0.785234899328859,
-          "recall_macro": 0.7702209714404836,
-          "f1_macro": 0.7625840956717891,
           "recall_malignant": 0.7435897435897436,
           "false_negatives": 10
         }

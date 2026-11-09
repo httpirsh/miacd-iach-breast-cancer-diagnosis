@@ -41,17 +41,14 @@ def find_duplicates(path, threshold=0.95):
     pixels = (pixels - pixels.mean(axis=1, keepdims=True)) / (pixels.std(axis=1, keepdims=True) + 1e-6)
     similarity = pixels @ pixels.T / pixels.shape[1]   # correlação entre cada par de imagens
 
-    # Juntar em grupos (se A ~ B e B ~ C, então A, B e C ficam no mesmo grupo)
-    parent = list(range(len(names)))
-    def root(i):
-        while parent[i] != i:
-            parent[i] = parent[parent[i]]
-            i = parent[i]
-        return i
+    # Juntar em grupos: cada imagem começa no seu grupo; para cada par parecido, o grupo da primeira passa a
+    # ter o número do grupo da segunda (assim, se A ~ B e B ~ C, A, B e C ficam no mesmo grupo).
+    group = list(range(len(names)))
     for i, j in zip(*np.where(np.triu(similarity > threshold, k=1))):
-        parent[root(i)] = root(j)
+        old, new = group[i], group[j]
+        group = [new if g == old else g for g in group]
 
-    groups = {name: root(i) for i, name in enumerate(names)}
+    groups = dict(zip(names, group))
     labels_per_group = {}
     for name, group in groups.items():
         labels_per_group.setdefault(group, set()).add(label_from_name(name))

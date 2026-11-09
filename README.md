@@ -9,8 +9,8 @@ Identificar casos de cancro da mama a partir de ecografias mamárias, com foco e
 ## Estado atual
 
 - Pré-processamento sem data leakage: o dataset tem 780 ficheiros mas só **601 ecografias diferentes** (muitas estão repetidas com recortes ligeiramente diferentes). A divisão treino/validação/teste (~64/17/20) é feita **por grupos de imagens repetidas** e **antes** do balanceamento; 19 imagens repetidas com labels contraditórias são excluídas.
-- **Passive Learning** (notebook 01, 5 seeds, treino determinístico): a MobileNetV2 pré-treinada chega a ~0.80 de accuracy e a CNN treinada de raiz a ~0.61; ambas detetam ~70% dos cancros. Os números completos estão no notebook 01 e no relatório (`report/`).
-- **Active Learning** com [modAL](https://modal-python.readthedocs.io/) (notebook 02): `uncertainty`, `entropy`, `margin` e uma estratégia nossa focada nos malignos, comparadas com a escolha ao acaso (20 seeds). Sem data leakage, **nenhuma estratégia poupa anotações em relação à escolha ao acaso**, e as estratégias de incerteza detetam um pouco menos cancros no início.
+- **Passive Learning** (notebook 01, 5 seeds, treino reprodutível): a MobileNetV2 pré-treinada chega a ~0.80 de accuracy e a CNN treinada de raiz a ~0.61; ambas detetam ~70% dos cancros. Os números completos estão no notebook 01 e no relatório (`report/`).
+- **Active Learning** com [modAL](https://modal-python.readthedocs.io/) (notebook 02): `uncertainty`, `margin` e uma estratégia nossa focada nos malignos, comparadas com a escolha ao acaso (20 seeds). Sem data leakage, **nenhuma estratégia poupa anotações em relação à escolha ao acaso**, e as estratégias de incerteza detetam um pouco menos cancros no início.
 - Exemplos de previsões do modelo (falsos negativos, outros erros, acertos) no notebook 01.
 - **Explicabilidade com Grad-CAM** (notebook 03): mapas de onde a MobileNetV2 olhou, comparados com o contorno das lesões desenhado pelos médicos. Quando deteta um cancro, o modelo olha sobretudo para a lesão; nos falsos negativos, umas vezes olha para a lesão e acha-a benigna, outras olha para o tecido ao lado. Enviar ao médico os casos com confiança abaixo de 90% apanharia 7 dos 10 falsos negativos, à custa de rever 41% das imagens.
 - Human-in-the-Loop: o humano pode dar as labels no notebook 02 (`HUMAN = True`).
@@ -27,7 +27,7 @@ Identificar casos de cancro da mama a partir de ecografias mamárias, com foco e
 ├── notebooks/                       # correr por esta ordem
 │   ├── 00_data_exploration.ipynb    # classes, exemplos, tamanhos, memória necessária
 │   ├── 01_passive_learning.ipynb    # baseline: CNN e MobileNetV2 treinadas com todo o conjunto de treino
-│   ├── 02_active_learning.ipynb     # Active Learning (uncertainty, entropy, margin, malignant) vs escolha ao acaso
+│   ├── 02_active_learning.ipynb     # Active Learning (uncertainty, margin, malignant) vs escolha ao acaso
 │   ├── 03_explicabilidade.ipynb     # Grad-CAM: onde o modelo olhou, comparado com as lesões
 │   └── 04_agente.ipynb              # protótipo do agente: decisão, médico no ciclo, log e chatbot
 ├── src/                             # código partilhado pelos notebooks
@@ -41,7 +41,7 @@ Identificar casos de cancro da mama a partir de ecografias mamárias, com foco e
 │   ├── agent.py                     # regra para chamar o médico, log de casos e textos para o paciente
 │   ├── rag.py                       # RAG: divisão dos documentos, embeddings e pesquisa
 │   ├── llm.py                       # ligação ao LLM do IAedu
-│   └── evaluation.py                # métricas (recall, F1, falsos negativos) e gráficos
+│   └── evaluation.py                # métricas (accuracy, recall de maligno, falsos negativos) e gráficos
 ├── docs/
 │   ├── projeto/                     # enunciado 2026/27, a nossa proposta, checklist, análise
 │   ├── rag/                         # documentos médicos usados pelo chatbot
