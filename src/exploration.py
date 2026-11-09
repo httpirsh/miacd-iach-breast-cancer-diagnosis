@@ -21,16 +21,6 @@ def class_counts(labels):
     return {name: labels.count(name) for name in CLASSES}
 
 
-def original_sizes(path, names):
-    """Largura e altura originais de cada imagem (antes de redimensionar)."""
-    return np.array([Image.open(os.path.join(path, name)).size for name in names])
-
-
-def memory_mb(n_images, size):
-    """Memória (MB) de n imagens em escala de cinzento, size x size, em float32."""
-    return n_images * size * size * 4 / 1e6
-
-
 def plot_class_distribution(counts, title="Distribuição das classes"):
     plt.figure(figsize=(5, 3))
     bars = plt.bar(counts.keys(), counts.values(), color=["seagreen", "steelblue", "firebrick"])

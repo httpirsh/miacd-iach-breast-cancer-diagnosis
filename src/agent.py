@@ -42,20 +42,16 @@ def to_doctor(probs, threshold):
     return (probs.argmax(axis=1) == MALIGNANT) | (probs.max(axis=1) < threshold)
 
 
-def malignant_reaching_doctor(probs, y_true, threshold):
-    """Fração dos malignos que chegam ao médico: os detetados mais os falhados com confiança baixa."""
-    malignant = np.asarray(y_true) == MALIGNANT
-    return float(to_doctor(probs, threshold)[malignant].mean())
-
-
 def choose_threshold(probs_val, y_val, target=0.95):
     """Menor limiar com que pelo menos `target` dos malignos de VALIDAÇÃO chegam ao médico.
 
     Menor limiar = menos casos enviados ao médico. Usa-se a validação e não o teste, para o teste
     continuar a dar uma estimativa honesta de como a regra funciona em imagens novas.
     """
+    malignant = np.asarray(y_val) == MALIGNANT
     for threshold in np.round(np.arange(0.50, 1.0, 0.01), 2):   # round: 0.97 e não 0.9700000000000003
-        if malignant_reaching_doctor(probs_val, y_val, threshold) >= target:
+        # malignos que chegam ao médico: os detetados mais os falhados com confiança baixa
+        if to_doctor(probs_val, threshold)[malignant].mean() >= target:
             return float(threshold)
     return 1.0   # nenhum limiar chega: tudo vai para o médico
 
@@ -72,14 +68,13 @@ def referral_summary(probs, y_true, threshold):
 
 def decide(probs, threshold):
     """Decisão para uma imagem: classe prevista, confiança e para onde vai (médico ou automático)."""
-    pred = int(np.argmax(probs))
-    confidence = float(np.max(probs))
-    if pred == MALIGNANT:
-        route, reason = DOCTOR, "o modelo prevê maligno"
-    elif confidence < threshold:
-        route, reason = DOCTOR, f"confiança ({confidence:.0%}) abaixo do limiar ({threshold:.0%})"
-    else:
+    pred, confidence = int(np.argmax(probs)), float(np.max(probs))
+    if not to_doctor(probs, threshold)[0]:   # a mesma regra que se avalia em choose_threshold
         route, reason = AUTOMATIC, f"{CLASSES[pred]} com confiança alta ({confidence:.0%})"
+    elif pred == MALIGNANT:
+        route, reason = DOCTOR, "o modelo prevê maligno"
+    else:
+        route, reason = DOCTOR, f"confiança ({confidence:.0%}) abaixo do limiar ({threshold:.0%})"
     return {"classe": CLASSES[pred], "confianca": confidence, "encaminhamento": route, "motivo": reason}
 
 

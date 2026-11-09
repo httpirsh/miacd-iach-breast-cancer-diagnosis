@@ -249,8 +249,7 @@ locally on a laptop with an NVIDIA GeForce RTX~3050 GPU (4\,GB) and 13\,GB of RA
 Images are converted to one grey-level channel, since ultrasound is monochromatic, resized
 to $128\times128$ pixels and scaled to $[0,1]$. We first used $224\times224$, but the AL
 notebook ran out of RAM on our machine. At $128\times128$ all images take about 120\,MB
-instead of 367\,MB, and MobileNetV2 did not perform better at $224\times224$
-(Experiment~1).
+instead of 367\,MB, and MobileNetV2 did not perform better at $224\times224$.
 
 \subsection{Passive learning models}
 \paragraph{CNN trained from scratch.}
@@ -388,21 +387,16 @@ win about half the time (10 of 20).
 \section{Experiments}
 \label{sec:experiments}
 
-\paragraph{Experiment 1: preliminary configurations.} Before fixing the models, we tried
-several configurations with a single seed, on our first, file-level split. Our first CNN
-(learning rate $0.00001$, sigmoid in the dense layer) barely learned: its test accuracy,
-0.36, was below that of always answering \emph{benign}. A learning rate of $0.001$ with
-ReLU and early stopping fixed it. For MobileNetV2, fine-tuning beat the frozen network,
-and $224\times224$ images did not beat $128\times128$. Weighting malignant errors more in the
-loss did not raise malignant recall, probably because the training set is already balanced.
-
-\paragraph{Experiment 2: passive learning.} The CNN and MobileNetV2 are trained on the
-balanced training set (1{,}554 images), with mini-batches of 32 and five seeds (1--5). Each
+\paragraph{Experiment 1: passive learning.} The CNN and MobileNetV2 are trained on the
+balanced training set (1{,}554 images), with mini-batches of 32 and five seeds (1--5). The
+configurations were chosen in preliminary runs with one seed: a learning rate of $0.001$
+with ReLU made the CNN learn, fine-tuning beat the frozen MobileNetV2, and neither
+$224\times224$ images nor a higher weight for malignant errors helped. Each
 run takes one to two minutes on the GPU. Training is reproducible: the same seed always
 gives the same model.
 
-\paragraph{Experiment 3: active learning.} The pool is the 381 training images left with one
-image per scan, and the test set is the same 149 images as in Experiment~2
+\paragraph{Experiment 2: active learning.} The pool is the 381 training images left with one
+image per scan, and the test set is the same 149 images as in Experiment~1
 (Table~\ref{tab:params}). Each of the 4 strategies is run with 20 seeds, 80 runs in total,
 which take under a minute. As a reference, the same classifier trained on the whole pool
 reaches accuracy 0.785 and malignant recall 0.718 (11 false negatives of 39), close to the
@@ -425,19 +419,17 @@ Repetitions & 20 seeds \\
 Human & simulated (dataset label) \\
 \bottomrule
 \end{tabular}
-\caption{Experiment 3: Active Learning setup.}
+\caption{Experiment 2: Active Learning setup.}
 \label{tab:params}
 \end{table}
 
-\paragraph{Experiment 4: explainability.} Grad-CAM is computed for the 149 test images with
+\paragraph{Experiment 3: explainability.} Grad-CAM is computed for the 149 test images with
 the MobileNetV2 of seed 1 (accuracy 0.799, malignant recall 0.744, 10 false negatives). It
-is compared with the lesion masks of the 121 test images that have a lesion. We also
-measure how many errors a simple rule would catch: sending to the clinician every case
-whose predicted class has a probability below a threshold.
+is compared with the lesion masks of the 121 test images that have a lesion.
 
-\paragraph{Experiment 5: agent.} The referral rule of Section~\ref{sec:agent} is set on the
+\paragraph{Experiment 4: agent.} The referral rule of Section~\ref{sec:agent} is set on the
 127 validation images and applied to the 149 test images, with the same model as in
-Experiment~4. The chatbot is checked with example questions from a patient.
+Experiment~3. The chatbot is checked with example questions from a patient.
 
 % =====================================================================================
 \section{Results}
@@ -467,7 +459,7 @@ MobileNetV2 & \textbf{.804}\,\spm\,.022 & .697\,\spm\,.050 & 11.8\,\spm\,1.9 \\
 MobileNetV2 & .840\,\spm\,.005 & .802\,\spm\,.049 & 8.3\,\spm\,2.1 \\
 \bottomrule
 \end{tabular}
-\caption{Experiment 2: passive learning on the test set (149 images, 39 malignant), mean
+\caption{Experiment 1: passive learning on the test set (149 images, 39 malignant), mean
 \spm\ standard deviation over 5 seeds. Rec.\,mal.: malignant recall; FN: false negatives.
 Bottom row: same model on our first split (156 test images, 42 malignant), in which copies
 of a scan could fall in both training and test.}
@@ -509,7 +501,7 @@ malignant in 14.
 \begin{figure*}[t]
 \centering
 \includegraphics[width=\textwidth]{figures/al_learning_curves.pdf}
-\caption{Experiment 3: Active Learning learning curves on the test set, mean over 20 seeds,
+\caption{Experiment 2: Active Learning learning curves on the test set, mean over 20 seeds,
 with $\spm1$ standard deviation shaded for random, margin and malignant. The dotted line is
 the same classifier trained on the whole pool (381 images).}
 \label{fig:curves}
@@ -537,7 +529,7 @@ Margin       & \textbf{.603} & .614 & .656 & .665 & .694 \\
 Malignant    & .579 & .637 & .660 & .668 & .701 \\
 \bottomrule
 \end{tabular}
-\caption{Experiment 3 on the test set, mean over 20 seeds (standard deviations 0.02--0.06
+\caption{Experiment 2 on the test set, mean over 20 seeds (standard deviations 0.02--0.06
 for accuracy and 0.03--0.11 for recall).}
 \label{tab:al}
 \end{table}
@@ -571,9 +563,7 @@ about 10 of 20.}
 \paragraph{Queried images.} Over all seeds, random queries follow the pool (16\% normal,
 53\% benign, 31\% malignant). Least confidence and margin ask for more normal
 images (20--21\%), fewer benign ones (48\%) and about as many malignant ones (32\%). The
-malignant strategy asks for the most malignant images (38\%). Outside the reported runs, we
-also tried querying one image per round instead of ten, and modAL's strategy that combines
-uncertainty with diversity. Both stayed close to random sampling.
+malignant strategy asks for the most malignant images (38\%).
 
 \subsection{Explainability}
 When the model detects a cancer it mostly looks at the lesion (Figure~\ref{fig:gradcam},
@@ -611,7 +601,7 @@ Benign, correct & 63 & 15\% & 7\% \\
 Benign, wrong & 19 & 13\% & 8\% \\
 \bottomrule
 \end{tabular}
-\caption{Experiment 4: overlap between the Grad-CAM of the predicted class and the lesion
+\caption{Experiment 3: overlap between the Grad-CAM of the predicted class and the lesion
 mask (means). Map in lesion: share of the map inside the lesion; Lesion area: share of the
 image covered by the lesion, which a map that ignores the image would also obtain.}
 \label{tab:gradcam}
@@ -619,12 +609,8 @@ image covered by the lesion, which a map that ignores the image would also obtai
 
 The model is often confident when it is wrong. Three of the ten missed cancers are predicted
 benign with a probability of at least 97\%, and nine of them receive a malignancy
-probability below 25\%. Even a rule such as ``refer when the probability of malignancy
-exceeds 25\%'' would therefore catch almost none of them. Referring every case whose
-predicted class has a probability below 90\% sends 41\% of the test images to the clinician
-and catches 21 of the 30 errors, including 7 of the 10 missed cancers. A threshold of 80\%
-refers 30\% of the images and catches 4 missed cancers, and one of 99\% refers 64\% and
-catches 9.
+probability below 25\%. The model's confidence alone is therefore not enough to
+decide which cases a clinician must see.
 
 \subsection{Agent prototype}
 On the validation set, the referral rule reaches its target with $\tau=0.88$: 36 of the 37
@@ -648,7 +634,7 @@ Cancers reaching the clinician & 36/37 & 36/39 \\
 Wrong automatic decisions & 6/56 & 8/67 \\
 \bottomrule
 \end{tabular}
-\caption{Experiment 5: referral rule of the agent ($\tau=0.88$, chosen on validation). A case
+\caption{Experiment 4: referral rule of the agent ($\tau=0.88$, chosen on validation). A case
 goes to the clinician if the model predicts malignant or its confidence is below $\tau$.}
 \label{tab:agent}
 \end{table}
@@ -684,28 +670,24 @@ AL gains are therefore fragile: the 57--60\% reductions found in tabular
 data~\cite{faria2022joint} do not carry over to our setting, and the benefit of AL depends
 strongly on the data, the model and the evaluation protocol.
 
-\paragraph{Why does uncertainty not help here?}
-We see three plausible reasons, which our experiments do not separate. (i)~The pre-trained
-features already separate the classes reasonably well, so a random sample of a few dozen
-images is already informative. Random sampling with 270 labels (accuracy 0.805) even
-exceeds the classifier trained on all 381 pool images (0.785), so differences of a few points are
-within the variation due to \emph{which} images are labelled. (ii)~The images on which the
-model is most uncertain are often the most ambiguous, and ambiguous images are also the
-most likely to be mislabelled: BUSI contains the same scan under contradictory labels.
-Concentrating the labels on them gives the classifier a biased, noisy training set.
-(iii)~With 381 images in the pool, there is little room to choose. At 270 labels, 71\% of
-the pool is labelled by any strategy.
-
 \paragraph{Uncertainty is not risk.}
-The classic strategies treat the three classes equally and spend part of the budget on
+Random sampling is hard to beat here. We see three plausible reasons, which our experiments
+do not separate. (i)~The pre-trained features already separate the classes reasonably
+well, so a random sample of a few dozen images is already informative. Random sampling with
+270 labels (accuracy 0.805) even exceeds the classifier trained on all 381 pool images
+(0.785), so differences of a few points are within the variation due to \emph{which} images
+are labelled. (ii)~The images on which the model is most uncertain are often the most
+ambiguous, and ambiguous images are also the most likely to be mislabelled: BUSI contains
+the same scan under contradictory labels. (iii)~With 381 images in the pool, there is little
+room to choose. At 270 labels, 71\% of the pool is labelled by any strategy.
+The classic strategies also treat the three classes equally and spend part of the budget on
 images torn between \emph{normal} and \emph{benign}. They ask for about a quarter more
-normal images than random sampling, and least confidence detects fewer cancers in the
-first hundred labels (57.8\% against 65.1\% at 100 labels). In a screening tool this is the wrong
+normal images than random sampling, and least confidence detects fewer cancers in the first
+hundred labels (57.8\% against 65.1\% at 100 labels). In a screening tool this is the wrong
 trade-off: the model asks where an error is cheap. Our malignant strategy sends the human
 the most malignant images, but it does not detect more cancers either. Asking about
 \emph{more} cancers is not the same as learning to detect them, perhaps because the images
-closest to a 50\% probability of malignancy are again the most ambiguous ones. A simple
-random baseline is hard to beat.
+closest to a 50\% probability of malignancy are again the most ambiguous ones.
 
 \paragraph{The role of the human.}
 The simulated human never errs. A real annotator can be tired, inexperienced or influenced
@@ -746,7 +728,7 @@ question, the excerpts and the case summary, and no personal data.
 \paragraph{Limitations.}
 The test set is small (149 images, 39 malignant): one false negative changes malignant
 recall by 2.6 points, and all runs share one data split. The 0.95 threshold for repeated
-scans was set by hand. The preliminary configurations (Experiment~1) were
+scans was set by hand. The preliminary configurations were
 compared on the test set of the first split, so the model choice is partly informed by test
 data; within the AL experiments, no choice used the test set. AL uses a linear classifier on
 frozen features rather than the fine-tuned network, so its conclusions may not transfer
