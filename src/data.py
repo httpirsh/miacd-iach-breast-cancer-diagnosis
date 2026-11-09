@@ -59,6 +59,11 @@ def find_duplicates(path, threshold=0.95):
     return groups, conflicts
 
 
+def load_image(file, size=224):
+    """Uma imagem em escala de cinzento, size × size, com valores em [0, 1]."""
+    return np.asarray(Image.open(file).convert("L").resize((size, size)), dtype=np.float32) / 255.0
+
+
 def load_images(path, size=224):
     """Lê as imagens em escala de cinzento, redimensionadas e normalizadas para [0, 1].
 
@@ -68,10 +73,7 @@ def load_images(path, size=224):
     """
     groups, conflicts = find_duplicates(path)
     names = [name for name in sorted(os.listdir(path)) if name not in conflicts]
-    images = np.array([
-        np.asarray(Image.open(os.path.join(path, name)).convert("L").resize((size, size)), dtype=np.float32) / 255.0
-        for name in names
-    ])
+    images = np.array([load_image(os.path.join(path, name), size) for name in names])
     labels = np.array([CLASSES.index(label_from_name(name)) for name in names])
     return images, labels, np.array([groups[name] for name in names]), np.array(names)
 

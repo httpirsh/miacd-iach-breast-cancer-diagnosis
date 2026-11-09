@@ -30,3 +30,6 @@ desktop.ini
 
 # Chaves de API (ex.: LLM do agente)
 .env
+
+# Log do protótipo do agente (casos decididos sem médico, revistos no notebook 04)
+results/agent_log.csv

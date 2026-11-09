@@ -1,0 +1,147 @@
+"""Agente: o que fazer com cada ecografia depois de o modelo a classificar.
+
+- Human-in-the-Loop: se o modelo prevê maligno, ou se a confiança dele é menor do que um limiar, o caso vai
+  SEMPRE para o médico e nada é comunicado como resultado final.
+- Human-on-the-Loop: os restantes casos (normal ou benigno com confiança alta) são decididos pelo sistema,
+  mas ficam registados num log que o médico pode rever e corrigir.
+
+O limiar é escolhido no conjunto de validação (choose_threshold), nunca no teste.
+"""
+
+import csv
+from datetime import datetime
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+from .data import CLASSES
+from .evaluation import MALIGNANT
+
+DOCTOR, AUTOMATIC = "médico", "automático"
+CLASSES_PT = {"normal": "normal", "benign": "benigno", "malignant": "maligno"}
+LOG_COLUMNS = ["data", "imagem", "classe_prevista", "confianca", "encaminhamento", "revisto", "classe_medico"]
+
+# Textos para o paciente. PROVISÓRIOS: a versão final é a da issue #10.
+TEXTS = {
+    "boas_vindas": "Olá. Este protótipo analisa uma ecografia mamária com um modelo de inteligência artificial "
+                   "e responde a perguntas sobre o resultado.",
+    "aviso": "Isto não é um diagnóstico. Só o seu médico pode interpretar o exame e decidir os próximos passos.",
+    DOCTOR: "O resultado precisa de ser visto por um médico, por isso o seu exame vai ser revisto antes de lhe ser "
+            "comunicado qualquer resultado. Isto não quer dizer que haja um problema: o modelo pede ajuda sempre "
+            "que não tem certeza ou que vê algo que deve ser confirmado.",
+    AUTOMATIC: "O modelo classificou a imagem como {classe}, com confiança de {confianca:.0%}. Este resultado fica "
+               "registado e pode ser revisto pelo seu médico.",
+    "heatmap": "As zonas a vermelho são as que mais pesaram na decisão do modelo; não mostram necessariamente "
+               "uma lesão.",
+}
+
+
+def to_doctor(probs, threshold):
+    """Para cada imagem: vai para o médico? (maligno previsto ou confiança < threshold)"""
+    probs = np.atleast_2d(probs)
+    return (probs.argmax(axis=1) == MALIGNANT) | (probs.max(axis=1) < threshold)
+
+
+def malignant_reaching_doctor(probs, y_true, threshold):
+    """Fração dos malignos que chegam ao médico: os detetados mais os falhados com confiança baixa."""
+    malignant = np.asarray(y_true) == MALIGNANT
+    return float(to_doctor(probs, threshold)[malignant].mean())
+
+
+def choose_threshold(probs_val, y_val, target=0.95):
+    """Menor limiar com que pelo menos `target` dos malignos de VALIDAÇÃO chegam ao médico.
+
+    Menor limiar = menos casos enviados ao médico. Usa-se a validação e não o teste, para o teste
+    continuar a dar uma estimativa honesta de como a regra funciona em imagens novas.
+    """
+    for threshold in np.round(np.arange(0.50, 1.0, 0.01), 2):   # round: 0.97 e não 0.9700000000000003
+        if malignant_reaching_doctor(probs_val, y_val, threshold) >= target:
+            return float(threshold)
+    return 1.0   # nenhum limiar chega: tudo vai para o médico
+
+
+def referral_summary(probs, y_true, threshold):
+    """Quantas imagens vão para o médico, quantos malignos lá chegam e quantos erros ficam no automático."""
+    y_true = np.asarray(y_true)
+    doctor = to_doctor(probs, threshold)
+    wrong = probs.argmax(axis=1) != y_true
+    return {"enviadas ao médico": f"{doctor.sum()} de {len(y_true)} ({doctor.mean():.0%})",
+            "malignos que chegam ao médico": f"{doctor[y_true == MALIGNANT].sum()} de {(y_true == MALIGNANT).sum()}",
+            "erros decididos sem médico": f"{(wrong & ~doctor).sum()} de {(~doctor).sum()}"}
+
+
+def decide(probs, threshold):
+    """Decisão para uma imagem: classe prevista, confiança e para onde vai (médico ou automático)."""
+    pred = int(np.argmax(probs))
+    confidence = float(np.max(probs))
+    if pred == MALIGNANT:
+        route, reason = DOCTOR, "o modelo prevê maligno"
+    elif confidence < threshold:
+        route, reason = DOCTOR, f"confiança ({confidence:.0%}) abaixo do limiar ({threshold:.0%})"
+    else:
+        route, reason = AUTOMATIC, f"{CLASSES[pred]} com confiança alta ({confidence:.0%})"
+    return {"classe": CLASSES[pred], "confianca": confidence, "encaminhamento": route, "motivo": reason}
+
+
+def patient_message(decision):
+    """O que o paciente vê: nunca a classe quando o caso vai para o médico."""
+    text = TEXTS[decision["encaminhamento"]].format(classe=CLASSES_PT[decision["classe"]],
+                                                     confianca=decision["confianca"])
+    return f"{text}\n\n{TEXTS['aviso']}"
+
+
+def case_for_chat(decision):
+    """Resumo do caso para o chatbot. Se o caso vai para o médico, a classe não é dada ao LLM, para não
+    chegar ao paciente antes de o médico ver o exame."""
+    if decision["encaminhamento"] == DOCTOR:
+        return "o exame foi encaminhado para o médico e ainda não há resultado para comunicar ao paciente"
+    return (f"{CLASSES_PT[decision['classe']]}, com confiança de {decision['confianca']:.0%} "
+            "(decidido sem médico, mas o médico pode rever)")
+
+
+def show_case(image, cam, decision, title=""):
+    """A ecografia e o Grad-CAM lado a lado, com a decisão do agente."""
+    fig, axs = plt.subplots(1, 2, figsize=(7, 3.6))
+    axs[0].imshow(image, cmap="gray")
+    axs[0].set_title(title or "ecografia")
+    axs[1].imshow(image, cmap="gray")
+    axs[1].imshow(cam, cmap="jet", alpha=0.4, vmin=0, vmax=1)
+    axs[1].set_title(f"{decision['classe']} ({decision['confianca']:.0%}) → {decision['encaminhamento']}",
+                     color="firebrick" if decision["encaminhamento"] == DOCTOR else "black")
+    for ax in axs:
+        ax.axis("off")
+    plt.tight_layout()
+    plt.show()
+
+
+# --- Log para o Human-on-the-Loop ---------------------------------------------------------------
+
+def log_case(path, image_name, decision):
+    """Acrescenta um caso ao log (cria o ficheiro se não existir)."""
+    new = not path.exists()
+    with open(path, "a", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=LOG_COLUMNS)
+        if new:
+            writer.writeheader()
+        writer.writerow({"data": datetime.now().isoformat(timespec="seconds"), "imagem": image_name,
+                         "classe_prevista": decision["classe"], "confianca": round(decision["confianca"], 3),
+                         "encaminhamento": decision["encaminhamento"], "revisto": False, "classe_medico": ""})
+
+
+def read_log(path):
+    import pandas as pd
+    return pd.read_csv(path, dtype={"classe_medico": str}, keep_default_na=False)
+
+
+def review_case(path, image_name, doctor_class):
+    """O médico revê um caso do log e indica a classe correta (igual à prevista se concordar)."""
+    if doctor_class not in CLASSES:
+        raise ValueError(f"Classe inválida: {doctor_class!r} (usar uma de {CLASSES})")
+    log = read_log(path)
+    rows = log["imagem"] == image_name
+    if not rows.any():
+        raise ValueError(f"{image_name!r} não está no log")
+    log.loc[rows, "revisto"] = True
+    log.loc[rows, "classe_medico"] = doctor_class
+    log.to_csv(path, index=False)
+    return log[rows]

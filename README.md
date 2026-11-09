@@ -14,10 +14,11 @@ Identificar casos de cancro da mama a partir de ecografias mamárias, com foco e
 - Exemplos de previsões do modelo (falsos negativos, outros erros, acertos) no notebook 01.
 - **Explicabilidade com Grad-CAM** (notebook 03): mapas de onde a MobileNetV2 olhou, comparados com o contorno das lesões desenhado pelos médicos. Quando deteta um cancro, o modelo olha sobretudo para a lesão; nos falsos negativos, umas vezes olha para a lesão e acha-a benigna, outras olha para o tecido ao lado. Enviar ao médico os casos com confiança abaixo de 90% apanharia 7 dos 10 falsos negativos, à custa de rever 41% das imagens.
 - Human-in-the-Loop: o humano pode dar as labels no notebook 02 (`HUMAN = True`).
+- **Protótipo do agente** (notebook 04): classifica a ecografia, mostra o Grad-CAM e decide para onde vai o caso. Se o modelo prevê maligno ou tem confiança abaixo de um limiar escolhido na validação, o caso vai sempre para o médico (Human-in-the-Loop); os outros ficam num log que o médico revê e corrige (Human-on-the-Loop). Tem um chatbot com RAG sobre documentos médicos, ligado ao LLM do [IAedu](https://iaedu.pt).
 
 ## Próximos passos
 
-- Agente para o paciente: protótipo num notebook que explica a previsão e responde a perguntas do domínio com RAG, usando uma API de LLM.
+- Documentos médicos para o RAG em `docs/rag/`, textos finais para o paciente e avaliação das respostas do chatbot (ver as issues).
 
 ## Estrutura do repositório
 
@@ -27,7 +28,8 @@ Identificar casos de cancro da mama a partir de ecografias mamárias, com foco e
 │   ├── 00_data_exploration.ipynb    # classes, exemplos, tamanhos, memória necessária
 │   ├── 01_passive_learning.ipynb    # baseline: CNN e MobileNetV2 treinadas com todo o conjunto de treino
 │   ├── 02_active_learning.ipynb     # Active Learning (uncertainty, entropy, margin, malignant) vs escolha ao acaso
-│   └── 03_explicabilidade.ipynb     # Grad-CAM: onde o modelo olhou, comparado com as lesões
+│   ├── 03_explicabilidade.ipynb     # Grad-CAM: onde o modelo olhou, comparado com as lesões
+│   └── 04_agente.ipynb              # protótipo do agente: decisão, médico no ciclo, log e chatbot
 ├── src/                             # código partilhado pelos notebooks
 │   ├── config.py                    # caminhos (dataset, resultados, modelos)
 │   ├── data.py                      # carregamento, divisão treino/teste e balanceamento
@@ -36,9 +38,13 @@ Identificar casos de cancro da mama a partir de ecografias mamárias, com foco e
 │   ├── model.py                     # CNN, MobileNetV2 (transfer learning), treino com early stopping
 │   ├── active_learning.py           # ciclo de Active Learning com Human-in-the-Loop
 │   ├── explain.py                   # Grad-CAM e comparação com as máscaras das lesões
+│   ├── agent.py                     # regra para chamar o médico, log de casos e textos para o paciente
+│   ├── rag.py                       # RAG: divisão dos documentos, embeddings e pesquisa
+│   ├── llm.py                       # ligação ao LLM do IAedu
 │   └── evaluation.py                # métricas (recall, F1, falsos negativos) e gráficos
 ├── docs/
 │   ├── projeto/                     # enunciado 2026/27, a nossa proposta, checklist, análise
+│   ├── rag/                         # documentos médicos usados pelo chatbot
 │   ├── exemplos_artigos/            # artigos de exemplo indicados pelo professor
 │   └── dataset/                     # metadados e licença do dataset
 ├── report/                          # relatório final em LaTeX (template IJCAI-ECAI 26)
@@ -53,7 +59,7 @@ Identificar casos de cancro da mama a partir de ecografias mamárias, com foco e
 
 ## Como correr
 
-Correr os notebooks por ordem: `00` (exploração, opcional), `01` (guarda a baseline em `results/` e o modelo em `models/`), `02` e `03` (usa o modelo guardado pelo `01`). Os parâmetros (tamanho das imagens, learning rate, seeds, nº de imagens pedidas ao humano, humano real ou simulado) estão na secção **1. Configuração** de cada notebook.
+Correr os notebooks por ordem: `00` (exploração, opcional), `01` (guarda a baseline em `results/` e o modelo em `models/`), `02`, `03` e `04` (usam o modelo guardado pelo `01`). Os parâmetros (tamanho das imagens, learning rate, seeds, nº de imagens pedidas ao humano, humano real ou simulado) estão na secção **1. Configuração** de cada notebook.
 
 ### Localmente, com GPU
 
@@ -75,3 +81,7 @@ python -m ipykernel install --user --name iach-projeto --display-name "IACH (.ve
 ```
 
 A primeira célula de cada notebook de treino chama `setup_gpu()` (`src/gpu.py`), que prepara a GPU e diz se o treino vai correr na GPU ou no CPU. Se a GPU ficar sem memória, reduzir o `IMG_SIZE`. Na primeira execução, o Keras descarrega os pesos pré-treinados da MobileNetV2 (~9 MB).
+
+### Chatbot (notebook 04)
+
+O chatbot usa o LLM do [IAedu](https://iaedu.pt) (acesso com as credenciais da universidade). No IAedu, criar um agente; na conversa modelo do agente, em engrenagem → «Informação da API», copiar a chave, o identificador do agente e o do canal para um ficheiro `.env` na raiz do repositório, seguindo o `.env.example`. O `.env` está no `.gitignore`: a chave nunca vai para o git. Sem `.env` ou sem documentos em `docs/rag/`, o resto do notebook 04 corre na mesma. Na primeira execução, o modelo de embeddings (~220 MB) é descarregado.
