@@ -11,4 +11,3 @@ pandas
 requests
 python-dotenv
 fastembed  # embeddings multilingues (modelo sentence-transformers em ONNX, sem PyTorch)
-pypdf

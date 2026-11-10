@@ -1,6 +1,6 @@
 """RAG (Retrieval-Augmented Generation): o chatbot responde com base nos documentos médicos de docs/rag/.
 
-1. Os documentos (.md, .txt ou .pdf) são divididos em pedaços (chunks) de alguns parágrafos (~800 caracteres).
+1. Os documentos (.md) são divididos em pedaços (chunks) de alguns parágrafos (~800 caracteres).
 2. Cada pedaço é transformado num vetor (embedding) que resume o seu significado, com um modelo
    multilingue (funciona em português). Perguntas e pedaços com significado parecido têm vetores próximos.
 3. Para cada pergunta, procuram-se os pedaços mais parecidos (similaridade do cosseno).
@@ -19,17 +19,9 @@ IGNORE = {"fontes.md", "README.md"}   # ficheiros de docs/rag/ que não são doc
 
 
 def load_documents(folder=RAG_PATH):
-    """Devolve {nome do ficheiro: texto} com os documentos de `folder` (.md, .txt e .pdf)."""
-    documents = {}
-    for path in sorted(folder.glob("*")) if folder.exists() else []:
-        if path.name in IGNORE:
-            continue
-        if path.suffix in (".md", ".txt"):
-            documents[path.name] = path.read_text(encoding="utf-8")
-        elif path.suffix == ".pdf":
-            from pypdf import PdfReader
-            documents[path.name] = "\n\n".join(page.extract_text() or "" for page in PdfReader(path).pages)
-    return documents
+    """Devolve {nome do ficheiro: texto} com os documentos .md de `folder`."""
+    return {path.name: path.read_text(encoding="utf-8")
+            for path in sorted(folder.glob("*.md")) if path.name not in IGNORE}
 
 
 def split_chunks(text, size=800):
