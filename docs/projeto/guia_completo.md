@@ -607,8 +607,13 @@ documentos de confiança e responde **só com base neles**, citando-os. Resposta
 menos invenção.
 
 ### Como funciona o nosso (`src/rag.py`)
-1. **Documentos** médicos para pacientes ficam em `docs/rag/` (.md, .txt, .pdf). (Os documentos
-   finais vêm da issue #5, da colega.)
+1. **Documentos** médicos para pacientes ficam em `docs/rag/`, em ficheiros .md. São 19 textos
+   em português, só de fontes públicas: SNS 24, DGS (incluindo a norma do rastreio), Liga Portuguesa
+   Contra o Cancro, folhetos dos hospitais de São João e Santa Maria e a tradução da Sociedade
+   Portuguesa de Radiologia das recomendações europeias (EUSOBI) sobre mamografia. Os PDFs foram
+   passados a `.md` (o texto extraído vinha com colunas trocadas). A lista, com endereços e o que
+   foi retirado de cada um (contactos, nomes de medicamentos, listas de perguntas sem resposta),
+   está em `docs/rag/fontes.md`.
 2. **Pedaços (chunks):** cada documento é dividido em pedaços de ~800 caracteres (juntam-se
    parágrafos seguidos; um parágrafo nunca é cortado).
 3. **Embeddings:** cada pedaço é transformado num **vetor** que resume o seu significado, com um
@@ -651,8 +656,8 @@ apresentação.
 - Um LLM pode inventar conteúdo (*alucinação*).
 - As mitigações (excertos citados, proibir diagnósticos e sim/não, esconder a classe nos casos
   encaminhados) **reduzem** os riscos mas **não os eliminam**.
-- Ainda **não foi avaliado sistematicamente** (depende dos documentos e perguntas de teste das
-  issues #5, #8, #9).
+- Ainda **não foi avaliado sistematicamente** (depende das perguntas de teste e da avaliação das
+  issues #8 e #9).
 
 ### Como mostrar ao professor
 No notebook 04, secção do chatbot: escolher um caso, fazer 2–3 perguntas (ex.: "o que é uma lesão

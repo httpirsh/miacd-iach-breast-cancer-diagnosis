@@ -15,10 +15,11 @@ Identificar casos de cancro da mama a partir de ecografias mamárias, com foco e
 - **Explicabilidade com Grad-CAM** (notebook 03): mapas de onde a MobileNetV2 olhou, comparados com o contorno das lesões desenhado pelos médicos. Quando deteta um cancro, o modelo olha sobretudo para a lesão; nos falsos negativos, umas vezes olha para a lesão e acha-a benigna, outras olha para o tecido ao lado. Enviar ao médico os casos com confiança abaixo de 90% apanharia 7 dos 10 falsos negativos, à custa de rever 41% das imagens.
 - Human-in-the-Loop: o humano pode dar as labels no notebook 02 (`HUMAN = True`).
 - **Protótipo do agente** (notebook 04): classifica a ecografia, mostra o Grad-CAM e decide para onde vai o caso. Se o modelo prevê maligno ou tem confiança abaixo de um limiar escolhido na validação, o caso vai sempre para o médico (Human-in-the-Loop); os outros ficam num log que o médico revê e corrige (Human-on-the-Loop). Tem um chatbot com RAG sobre documentos médicos, ligado ao LLM do [IAedu](https://iaedu.pt).
+- **Documentos do chatbot** (`docs/rag/`): 19 textos para pacientes, em português, do SNS 24, da DGS, da Liga Portuguesa Contra o Cancro, de hospitais do SNS (São João, Santa Maria) e da Sociedade Portuguesa de Radiologia. Cobrem rastreio, ecografia e mamografia, BI-RADS, benigno e maligno, biópsia, limites dos exames e tratamento. A lista com os endereços e o que foi retirado de cada um está em `docs/rag/fontes.md`.
 
 ## Próximos passos
 
-- Documentos médicos para o RAG em `docs/rag/`, textos finais para o paciente e avaliação das respostas do chatbot (ver as issues).
+- Textos finais para o paciente e avaliação das respostas do chatbot (ver as issues).
 
 ## Estrutura do repositório
 
@@ -44,7 +45,7 @@ Identificar casos de cancro da mama a partir de ecografias mamárias, com foco e
 │   └── evaluation.py                # métricas (accuracy, recall de maligno, falsos negativos) e gráficos
 ├── docs/
 │   ├── projeto/                     # enunciado 2026/27, a nossa proposta, checklist, análise
-│   ├── rag/                         # documentos médicos usados pelo chatbot
+│   ├── rag/                         # documentos médicos usados pelo chatbot (fontes em fontes.md)
 │   └── dataset/                     # metadados e licença do dataset
 ├── report/                          # relatório final em LaTeX (template IJCAI-ECAI 26)
 ├── results/                         # métricas guardadas pelos notebooks (criada ao correr)
