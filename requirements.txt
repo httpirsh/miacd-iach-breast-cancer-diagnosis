@@ -10,4 +10,3 @@ pandas
 # Agente (notebook 04): chatbot com RAG e o LLM do IAedu
 requests
 python-dotenv
-fastembed  # embeddings multilingues (modelo sentence-transformers em ONNX, sem PyTorch)

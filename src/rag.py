@@ -1,9 +1,10 @@
 """RAG (Retrieval-Augmented Generation): o chatbot responde com base nos documentos médicos de docs/rag/.
 
 1. Os documentos (.md) são divididos em pedaços (chunks) de alguns parágrafos (~800 caracteres).
-2. Cada pedaço é transformado num vetor (embedding) que resume o seu significado, com um modelo
-   multilingue (funciona em português). Perguntas e pedaços com significado parecido têm vetores próximos.
-3. Para cada pergunta, procuram-se os pedaços mais parecidos (similaridade do cosseno).
+2. Cada pedaço é transformado num vetor TF-IDF: conta os grupos de 3 a 5 letras seguidas que tem, dando mais
+   peso aos que aparecem em poucos pedaços. Grupos de letras (e não palavras inteiras) apanham variações
+   como "biópsia"/"biópsias" ou "maligno"/"malignos".
+3. Para cada pergunta, procuram-se os pedaços com mais grupos de letras em comum (similaridade do cosseno).
 4. A pergunta, esses pedaços e as regras do chatbot (linguagem simples, citar a fonte, nunca dar um
    diagnóstico) vão numa mensagem para o LLM (src/llm.py), que responde só com base neles.
 """
@@ -11,17 +12,15 @@
 import re
 
 import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 from .config import RAG_PATH
-
-EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"   # ~220 MB, corre no CPU
-IGNORE = {"fontes.md", "README.md"}   # ficheiros de docs/rag/ que não são documentos médicos
 
 
 def load_documents(folder=RAG_PATH):
     """Devolve {nome do ficheiro: texto} com os documentos .md de `folder`."""
     return {path.name: path.read_text(encoding="utf-8")
-            for path in sorted(folder.glob("*.md")) if path.name not in IGNORE}
+            for path in sorted(folder.glob("*.md")) if path.name != "fontes.md"}   # fontes.md é a lista das fontes
 
 
 def split_chunks(text, size=800):
@@ -42,22 +41,14 @@ class Retriever:
     """Índice dos pedaços dos documentos: encontra os mais parecidos com uma pergunta."""
 
     def __init__(self, documents):
-        from fastembed import TextEmbedding
-
         self.chunks = [(name, chunk) for name, text in documents.items() for chunk in split_chunks(text)]
-        if not self.chunks:
-            raise ValueError(f"Não há documentos em {RAG_PATH} (issue #5).")
-        self.model = TextEmbedding(EMBEDDING_MODEL)
-        self.vectors = self._normalize(np.array(list(self.model.embed([c for _, c in self.chunks]))))
-
-    @staticmethod
-    def _normalize(v):
-        return v / np.linalg.norm(v, axis=-1, keepdims=True)
+        # char_wb: grupos de letras dentro de cada palavra; strip_accents: "biopsia" = "biópsia"
+        self.tfidf = TfidfVectorizer(analyzer="char_wb", ngram_range=(3, 5), strip_accents="unicode")
+        self.vectors = self.tfidf.fit_transform([chunk for _, chunk in self.chunks])   # já normalizados
 
     def search(self, question, k=4):
         """Os k pedaços mais parecidos com a pergunta: lista de (documento, texto, similaridade)."""
-        q = self._normalize(np.array(list(self.model.query_embed([question])))[0])
-        scores = self.vectors @ q
+        scores = (self.vectors @ self.tfidf.transform([question]).T).toarray().ravel()
         return [(*self.chunks[i], float(scores[i])) for i in np.argsort(-scores)[:k]]
 
 

@@ -40,7 +40,7 @@ Identificar casos de cancro da mama a partir de ecografias mamárias, com foco e
 │   ├── active_learning.py           # ciclo de Active Learning com Human-in-the-Loop
 │   ├── explain.py                   # Grad-CAM e comparação com as máscaras das lesões
 │   ├── agent.py                     # regra para chamar o médico, log de casos e textos para o paciente
-│   ├── rag.py                       # RAG: divisão dos documentos, embeddings e pesquisa
+│   ├── rag.py                       # RAG: divisão dos documentos e pesquisa (TF-IDF)
 │   ├── llm.py                       # ligação ao LLM do IAedu
 │   └── evaluation.py                # métricas (accuracy, recall de maligno, falsos negativos) e gráficos
 ├── docs/
@@ -92,4 +92,4 @@ IAEDU_AGENT_ID=...
 IAEDU_CHANNEL_ID=...
 ```
 
-O `.env` está no `.gitignore`: a chave nunca vai para o git. Sem `.env` ou sem documentos em `docs/rag/`, o resto do notebook 04 corre na mesma. Na primeira execução, o modelo de embeddings (~220 MB) é descarregado.
+O `.env` está no `.gitignore`: a chave nunca vai para o git. Sem `.env`, o notebook 04 corre na mesma e o chatbot mostra só a pesquisa nos documentos.

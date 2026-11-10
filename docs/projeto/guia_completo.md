@@ -616,13 +616,38 @@ menos invenção.
    está em `docs/rag/fontes.md`.
 2. **Pedaços (chunks):** cada documento é dividido em pedaços de ~800 caracteres (juntam-se
    parágrafos seguidos; um parágrafo nunca é cortado).
-3. **Embeddings:** cada pedaço é transformado num **vetor** que resume o seu significado, com um
-   modelo multilingue (`paraphrase-multilingual-MiniLM-L12-v2`, via fastembed, corre no CPU,
-   funciona em português). Textos com significados parecidos têm vetores próximos.
+3. **TF-IDF:** cada pedaço é transformado num **vetor** que conta os grupos de 3 a 5 letras
+   seguidas que tem (scikit-learn, `TfidfVectorizer`). Os grupos que aparecem em quase todos os
+   pedaços (como "que") pesam pouco; os raros (como "biópsia") pesam muito. Grupos de letras, e não
+   palavras inteiras, apanham variações como "maligno"/"malignos"; os acentos são ignorados.
 4. **Pesquisa:** a pergunta também vira vetor; procuram-se os **4 pedaços mais parecidos**
-   (similaridade do **cosseno** = o quão alinhados estão os dois vetores, de −1 a 1).
+   (similaridade do **cosseno** = o quão alinhados estão os dois vetores, de 0 a 1 com TF-IDF).
 5. **Mensagem para o LLM:** regras + resultado do caso + os 4 excertos numerados + a pergunta.
 6. O LLM responde.
+
+### Porque é tão simples
+O RAG está no mínimo que funciona: ler os `.md`, dividir em pedaços, TF-IDF, 4 excertos, LLM.
+Não há base de dados vetorial, modelo de embeddings nem bibliotecas como LangChain: com 19
+documentos (cerca de 190 pedaços) a pesquisa é imediata, e o TF-IDF já vem no scikit-learn, que o
+projeto usa. Testámos alternativas com 26 perguntas típicas de paciente, contando em quantas o
+documento certo aparece nos 4 excertos enviados ao LLM:
+
+| Pesquisa | Perguntas com o documento certo |
+|---|---|
+| **TF-IDF com grupos de letras (o que usamos)** | **25 de 26** |
+| Embeddings `paraphrase-multilingual-MiniLM-L12-v2` (220 MB) | 23 de 26 |
+| Os mesmos, com o título e a secção à frente de cada pedaço | 21 de 26 |
+| Embeddings `paraphrase-multilingual-mpnet-base-v2` (1 GB) | 22 de 26 |
+| Embeddings `multilingual-e5-large` (2,2 GB) | não correu: falta de memória |
+
+Com tão poucas perguntas, a diferença entre o TF-IDF e os embeddings não é segura: ficam
+**empatados**, e escolhemos o mais simples. O que se perde: os embeddings percebem sinónimos e o
+TF-IDF não ("Vou sentir dor quando me picarem?" não encontra o folheto da biópsia). Quando a
+pesquisa falha, o LLM diz que não sabe e sugere falar com o médico.
+
+Numa conversa de teste com o LLM do IAedu (9 perguntas), o chatbot cumpriu as regras: não
+respondeu sim/não a "tenho cancro?", não revelou a classe quando o caso foi para o médico, citou
+as fontes e recusou medicamentos e perguntas fora do tema.
 
 ### As regras do chatbot
 - Português de Portugal, frases curtas, sem jargão (ou explicando-o).
@@ -693,7 +718,8 @@ diagnóstico e recusa medicação. Precisa do `.env` com a chave.
    conclusões podem não se transferir para fine-tuning.
 5. Rotações de 90° e 180° produzem imagens que um ecógrafo nunca produz.
 6. Grad-CAM e agente usam **um só modelo** (seed 1).
-7. O chatbot ainda não foi avaliado sistematicamente, nem com pacientes ou médicos.
+7. O chatbot ainda não foi avaliado sistematicamente, nem com pacientes ou médicos. A pesquisa
+   (TF-IDF) compara letras e não significados: não percebe sinónimos ("picar" e "biópsia").
 8. Com 20 repetições, 12–13 em 20 está perto do acaso (10) → as diferenças no recall ao longo da
    curva são evidência fraca. Claras: a diferença no início e a accuracy.
 9. Hardware limitado (4 GB GPU, 13 GB RAM) obrigou a imagens de 128×128 e a um AL com features.
@@ -720,7 +746,7 @@ src/
   active_learning.py estratégias, classificador, ciclo de AL, pergunta ao humano
   explain.py         Grad-CAM e comparação com a lesão
   agent.py           regra de encaminhamento, limiar, mensagens ao paciente, log
-  rag.py             documentos, pedaços, embeddings, pesquisa, regras do chatbot
+  rag.py             documentos, pedaços, pesquisa (TF-IDF), regras do chatbot
   llm.py             ligação à API do IAedu
 notebooks/           00 a 04 (ver secção seguinte)
 results/             passive_learning.json, active_learning.json (métricas guardadas)
@@ -894,7 +920,6 @@ divisões; estudo com médicos e pacientes.
 | **Data leakage** | o treino "vê" informação do teste → resultados inflacionados |
 | **Dropout** | desligar neurónios ao acaso no treino, contra o overfitting |
 | **Early stopping** | parar o treino quando a validação deixa de melhorar |
-| **Embedding** | vetor que representa o significado de um texto |
 | **Época** | uma passagem por todo o treino |
 | **Falso negativo (FN)** | cancro classificado como benigno/normal |
 | **Falso positivo** | não-cancro classificado como maligno |
@@ -921,9 +946,10 @@ divisões; estudo com médicos e pacientes.
 | **Recall de maligno** | % dos cancros que o modelo deteta |
 | **ReLU** | função de ativação max(0, x) |
 | **Seed** | número que fixa o acaso, para reprodutibilidade |
-| **Similaridade do cosseno** | quão parecidos são dois vetores (−1 a 1) |
+| **Similaridade do cosseno** | quão parecidos são dois vetores (−1 a 1; 0 a 1 com TF-IDF) |
 | **Softmax** | transforma as saídas em probabilidades que somam 1 |
 | **StratifiedGroupKFold** | divisão que mantém proporções das classes e grupos juntos |
+| **TF-IDF** | vetor que conta as palavras (aqui, grupos de letras) de um texto, com mais peso às raras |
 | **Transfer learning** | reaproveitar uma rede treinada noutro problema |
 | **τ (tau)** | limiar de confiança do agente (0.88) |
 | **Validação** | conjunto para afinar decisões de treino, nunca para o resultado final |
