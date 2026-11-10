@@ -469,13 +469,14 @@ and row percentages). False negatives are in the \emph{malignant} row, \emph{nor
 \end{figure}
 
 \subsection{Active learning}
-Figure~\ref{fig:curves} shows the learning curves, Table~\ref{tab:al} the values at selected
-numbers of labels, and Table~\ref{tab:wins} how often random sampling beats each strategy.
+Figure~\ref{fig:curves} shows the learning curves and Table~\ref{tab:al} the values at
+selected numbers of labels.
 
 \paragraph{No strategy beats random sampling.} In accuracy, margin and malignant are level
 with random sampling up to about 200 labels, and below it at 270 labels (0.783--0.788
-against 0.805). Over the whole curve, random sampling scores higher in 14 to 16 of the 20
-repetitions.
+against 0.805). Over the whole curve, random sampling scores higher in 14 of the 20 repetitions against
+margin and malignant, and in 16 against least confidence, where equally good strategies would
+give about 10.
 
 \begin{figure*}[t]
 \centering
@@ -518,27 +519,6 @@ detects 65.1\% of the cancers and least confidence 57.8\%. With 270 labels all s
 reach a malignant recall of about 0.70. Over the whole curve the differences in malignant
 recall are small: random sampling is higher in 12 or 13 of the 20 repetitions.
 
-\begin{table}[t]
-\centering
-\small
-\begin{tabular}{lcc}
-\toprule
-Strategy & Accuracy & Malignant recall \\
-\midrule
-Least confidence & 16 of 20 & 13 of 20 \\
-Margin           & 14 of 20 & 12 of 20 \\
-Malignant        & 14 of 20 & 12 of 20 \\
-\bottomrule
-\end{tabular}
-\caption{Repetitions (of 20) in which random sampling scores higher than each strategy,
-averaging each metric over the whole learning curve. Equally good strategies would give
-about 10 of 20.}
-\label{tab:wins}
-\end{table}
-
-\paragraph{Queried images.} Least confidence and margin ask for more normal images than
-random sampling (20--21\% against 16\%); our malignant strategy asks for the most malignant
-ones (38\% against 31\%).
 
 \subsection{Explainability}
 \textbf{When the model detects a cancer, it mostly looks at the lesion}
@@ -651,9 +631,11 @@ the pool is labelled by any strategy.
 
 \paragraph{Uncertainty is not risk.}
 The classic strategies treat the three classes equally. They spend part of the budget on
-images torn between \emph{normal} and \emph{benign}, where an error is cheap, and least
-confidence detects fewer cancers early on. In a screening tool this is the wrong trade-off.
-Our malignant strategy asks about more cancers, but does not detect more of them, perhaps
+images torn between \emph{normal} and \emph{benign}, where an error is cheap: 20--21\% of
+the images queried by least confidence and margin are normal, against 16\% for random
+sampling. Least confidence also detects fewer cancers early on. In a screening tool this is the wrong trade-off.
+Our malignant strategy asks about more cancers (38\% of its queries, against 31\%), but
+does not detect more of them, perhaps
 because the images closest to a 50\% probability of malignancy are again the most ambiguous
 ones.
 

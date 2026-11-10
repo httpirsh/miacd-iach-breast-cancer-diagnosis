@@ -1,6 +1,5 @@
 """Carregamento, balanceamento e divisão do dataset de ecografias mamárias."""
 
-import hashlib
 import os
 
 import numpy as np
