@@ -681,8 +681,8 @@ apresentação.
 - Um LLM pode inventar conteúdo (*alucinação*).
 - As mitigações (excertos citados, proibir diagnósticos e sim/não, esconder a classe nos casos
   encaminhados) **reduzem** os riscos mas **não os eliminam**.
-- Ainda **não foi avaliado sistematicamente** (depende das perguntas de teste e da avaliação das
-  issues #8 e #9).
+- Ainda **não foi avaliado sistematicamente** (issue #9). As 30 perguntas de teste, com a resposta
+  esperada e o documento que a suporta, estão em `docs/rag/perguntas_teste.csv` (#8).
 
 ### Como mostrar ao professor
 No notebook 04, secção do chatbot: escolher um caso, fazer 2–3 perguntas (ex.: "o que é uma lesão
