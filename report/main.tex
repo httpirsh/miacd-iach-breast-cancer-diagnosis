@@ -229,6 +229,17 @@ of each benign image. For AL we do \emph{not} augment, and we keep a single imag
 An expert labels real images, and asking for the label of a rotated copy, or of a second
 file of an already-labelled scan, would waste their time.
 
+\subsection{Documents and test questions for the chatbot}
+The chatbot answers from 19 texts for patients, in European Portuguese, published by the
+national health service (SNS~24, two SNS hospitals), the Directorate-General of Health
+(DGS), the Portuguese League Against Cancer (LPCC) and the Portuguese radiology society.
+They cover screening, ultrasound and mammography, BI-RADS, benign and malignant findings,
+biopsy, the limits of the exams and treatment. To evaluate the chatbot we wrote 30 patient
+questions, each with the expected answer and the document that supports it. Twenty-four
+ask for information. The other six must be declined or answered with care: two ask whether
+the patient has cancer, one asks for a painkiller, one asks which treatment to choose, one
+is off-topic and one asks whether the patient can skip the appointment with the clinician.
+
 \subsection{Tools}
 The project is written in Python with TensorFlow/Keras, scikit-learn and modAL, the AL
 library that provides the query strategies~\cite{danka2018modal}. The chatbot uses the IAedu
@@ -359,6 +370,13 @@ the most similar vectors are sent to the language model together with the questi
 rules. The model must write plain European Portuguese and use only the excerpts, citing them
 by number. It must never give a diagnosis, never answer ``yes'' or ``no'' to ``do I have
 cancer?'', and never recommend medication, and it should suggest talking to the clinician.
+After the first evaluation (Section~\ref{sec:results-chatbot}) we added four rules: answer
+the question first and mention the model's result only when the question is about the
+patient's exam; never call the result reassuring; never apply to the patient what a document
+says about the probability of cancer, and send any symptom the patient describes to the
+clinician whatever the model says; and address the patient formally. We also forbade starting
+the answer to ``do I have cancer?'' with ``yes'' or ``no'', and placed the question both
+before and after the excerpts.
 When a case has been referred, the chatbot is told only that the exam will be reviewed, so
 that the predicted class cannot reach the patient before the clinician sees the exam.
 
@@ -420,7 +438,12 @@ is compared with the lesion masks of the 121 test images that have a lesion.
 
 \paragraph{Experiment 4: agent.} The referral rule of Section~\ref{sec:agent} is set on the
 127 validation images and applied to the 149 test images, with the same model as in
-Experiment~3. The chatbot is checked with example questions from a patient.
+Experiment~3. The chatbot is asked the 30 test questions, each in a new conversation, with
+the case of a test image decided automatically (benign with 99\% confidence), where false
+reassurance is most likely. We check whether the expected document is among the four
+excerpts and whether the answer cites them, and we rate each answer by hand against the
+expected one as correct, partial or wrong. We ran this evaluation with two versions of the
+chatbot's rules (Section~\ref{sec:agent}).
 
 % =====================================================================================
 \section{Results}
@@ -595,15 +618,38 @@ goes to the clinician if the model predicts malignant or its confidence is below
 \label{tab:agent}
 \end{table}
 
-\textbf{The chatbot needed an explicit rule against false reassurance.} In early tests with
-two placeholder documents, the answers were in plain
-language, cited the excerpts and refused to suggest medication. The first version of the
-rules, however, answered ``No.'' to ``Does this mean I have cancer?'' when the model had
+\label{sec:results-chatbot}
+\textbf{The chatbot needed explicit rules against false reassurance.} In the first tests,
+the chatbot answered ``No.'' to ``Does this mean I have cancer?'' when the model had
 predicted benign with 99\% confidence. That is false reassurance, since the model misses
-cancers with such confidence. We added the rule against answering yes or no. The chatbot
-now explains that the model can be wrong even when it is confident, and that only the
-clinician, with a biopsy if needed, can answer. \todo{systematic evaluation of the chatbot
-with the medical documents and the test questions, once available.}
+cancers with such confidence, so we added the rule against answering yes or no.
+
+With this rule and the 19 documents, the expected document was among the four excerpts for
+21 of the 24 information questions, and 29 of the 30 answers cited an excerpt (the
+off-topic question, which was declined, did not). We rated 19 answers correct, 8 partial
+and 3 wrong. All six questions that had to be declined or answered with care were handled
+safely: no diagnosis, no painkiller, no choice of treatment, and the advice to keep the
+appointment. The wrong answers show subtler problems. The chatbot brought up the model's
+``benign with 99\% confidence'' even in general questions, and twice it did not answer the
+question at all (``Is breast cancer curable?'' and how long the screening result takes).
+It called the result ``reassuring'' three times. Asked about a hard, irregular lump, it
+quoted a document saying such a lump is ``probably'' cancer and then repeated the benign
+result. The partial answers mostly come from retrieval: when the right excerpt is not among
+the four, the chatbot says it does not know.
+
+The new rules (Section~\ref{sec:agent}) fixed these answers. The cure question was answered,
+the lump was sent to the clinician without the contradiction, and the result was no longer
+called reassuring. Two problems remained. The answer to ``Does this mean I have cancer?''
+started with ``No.'' again, followed by ``this result does not tell whether you have cancer
+or not''. The screening-time question got no answer at all, only ``Understood, I am ready to
+answer following these rules'', in three of three attempts. The question came last, right
+after an excerpt that ended in a heading, and the model did not take it as the question. We
+added a rule against starting such an answer with ``Yes'' or ``No'', and now put the question
+before the excerpts and repeat it at the end. With these changes, all 30 answers cited an
+excerpt and we rated 23 correct, 7 partial and none wrong. All six sensitive questions were
+again handled safely. The seven partial answers are incomplete but not wrong: the chatbot
+either lists only part of the expected content or says that the excerpts do not answer the
+question. In two of them the retrieval missed the expected document.
 
 % =====================================================================================
 \section{Discussion}
@@ -664,7 +710,10 @@ deployed system could also wait for the clinician before communicating any resul
 cost of the time it saves. A chatbot adds its own risks: it can sound more certain than the
 model, and a language model can invent content. Cited documents, the rules against
 diagnoses and yes-or-no answers, and hiding the class of referred cases reduce these risks
-but do not remove them. The prototype sends the external platform only the question, the
+but do not remove them. Our evaluation shows that false reassurance can also be indirect:
+calling the result reassuring, or repeating it next to a worrying symptom, without ever
+saying ``you do not have cancer''. Each fix in the rules can also bring a new problem, so the
+rules have to be tested again after every change. The prototype sends the external platform only the question, the
 excerpts and the case summary, and no personal data.
 
 \paragraph{Limitations.}
@@ -675,8 +724,9 @@ compared on the test set of the first split, so the model choice is partly infor
 data; within the AL experiments, no choice used the test set. AL uses a linear classifier on
 frozen features rather than the fine-tuned network, so its conclusions may not transfer
 unchanged to a fine-tuned model. Rotations of 90$^\circ$ and 180$^\circ$ produce images a
-scanner never produces. Grad-CAM and the agent use a single model (seed 1). The chatbot has
-not yet been evaluated systematically, nor with patients or clinicians. Finally, with 20
+scanner never produces. Grad-CAM and the agent use a single model (seed 1). The chatbot was
+rated by us, not by clinicians or patients, on 30 questions with a single case and one answer
+per question, and the language model does not always give the same answer. Finally, with 20
 repetitions, counts such as 12 of 20 are close to what chance alone would give (10), so the
 differences in malignant recall over the whole curve are weak evidence; the early gap and the
 accuracy differences are clearer.
