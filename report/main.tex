@@ -61,7 +61,9 @@ uncertainty-based ones detect fewer cancers early on. Grad-CAM maps, checked aga
 lesions outlined by clinicians, show that the model looks at the lesion when it finds a
 cancer, but also misses cancers with high confidence. We use these findings in a
 patient-facing agent prototype that sends uncertain and suspicious cases to the clinician
-and answers questions from trusted documents. Code and results:
+and answers questions from trusted documents. On 30 test questions, its chatbot gave no
+wrong answer and no diagnosis, but only after we found and corrected indirect forms of false
+reassurance. Code and results:
 \url{https://github.com/httpirsh/miacd-iach-breast-cancer-diagnosis}.
 \end{abstract}
 
@@ -122,8 +124,17 @@ random sampling, and the classic strategies ask the expert about images where an
 cheap.
 \item \textbf{An agent that keeps the clinician in control.} Grad-CAM shows that the model
 also misses cancers it looked at, often with high confidence. The agent keeps the clinician
-in the loop for suspicious cases and on the loop for the rest.
+in the loop for suspicious cases and on the loop for the rest. Its chatbot answers from
+cited medical documents, and our evaluation shows how false reassurance can appear
+indirectly and how to guard against it.
 \end{itemize}
+
+The remainder of this paper is structured as follows. Section~\ref{sec:related} reviews
+related work. Section~\ref{sec:materials} describes the dataset, the repeated scans, the
+data splits and the documents used by the chatbot, and Section~\ref{sec:methods} the models,
+the AL loop, Grad-CAM and the agent. Section~\ref{sec:experiments} presents the four
+experiments and Section~\ref{sec:results} their results. Section~\ref{sec:discussion}
+discusses them, together with the limitations, and Section~\ref{sec:conclusions} concludes.
 
 % =====================================================================================
 \section{Related Work}
@@ -625,17 +636,36 @@ predicted benign with 99\% confidence. That is false reassurance, since the mode
 cancers with such confidence, so we added the rule against answering yes or no.
 
 With this rule and the 19 documents, the expected document was among the four excerpts for
-21 of the 24 information questions, and 29 of the 30 answers cited an excerpt (the
-off-topic question, which was declined, did not). We rated 19 answers correct, 8 partial
-and 3 wrong. All six questions that had to be declined or answered with care were handled
-safely: no diagnosis, no painkiller, no choice of treatment, and the advice to keep the
-appointment. The wrong answers show subtler problems. The chatbot brought up the model's
-``benign with 99\% confidence'' even in general questions, and twice it did not answer the
-question at all (``Is breast cancer curable?'' and how long the screening result takes).
-It called the result ``reassuring'' three times. Asked about a hard, irregular lump, it
-quoted a document saying such a lump is ``probably'' cancer and then repeated the benign
-result. The partial answers mostly come from retrieval: when the right excerpt is not among
-the four, the chatbot says it does not know.
+21 of the 24 information questions (Table~\ref{tab:chatbot}). We rated 19 answers correct,
+8 partial and 3 wrong. All six questions that had to be declined or answered with care were
+handled safely: no diagnosis, no painkiller, no choice of treatment, and the advice to keep
+the appointment. The problems were subtler. The chatbot brought up the model's ``benign with
+99\% confidence'' even in general questions, and twice it did not answer the question at all
+(``Is breast cancer curable?'' and how long the screening result takes). It called the
+result ``reassuring'' in three answers. Asked about a hard, irregular lump, it quoted a
+document saying such a lump is ``probably'' cancer and then repeated the benign result. The
+other partial answers were incomplete rather than wrong: they gave only part of the expected
+content, or said that the excerpts did not answer the question.
+
+\begin{table}[t]
+\centering
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lcc}
+\toprule
+& First rules & Final rules \\
+\midrule
+Correct / partial / wrong & 19 / 8 / 3 & 23 / 7 / 0 \\
+Answers citing an excerpt & 29/30 & 30/30 \\
+Sensitive questions handled safely & 6/6 & 6/6 \\
+Expected document retrieved & 21/24 & 21/24 \\
+\bottomrule
+\end{tabular}
+\caption{Experiment 4: chatbot answers to the 30 test questions, rated by hand against the
+expected answers. The off-topic question was declined without a citation with the first
+rules. Retrieval does not depend on the rules.}
+\label{tab:chatbot}
+\end{table}
 
 The new rules (Section~\ref{sec:agent}) fixed these answers. The cure question was answered,
 the lump was sent to the clinician without the contradiction, and the result was no longer
@@ -646,7 +676,7 @@ answer following these rules'', in three of three attempts. The question came la
 after an excerpt that ended in a heading, and the model did not take it as the question. We
 added a rule against starting such an answer with ``Yes'' or ``No'', and now put the question
 before the excerpts and repeat it at the end. With these changes, all 30 answers cited an
-excerpt and we rated 23 correct, 7 partial and none wrong. All six sensitive questions were
+excerpt and we rated 23 correct, 7 partial and none wrong (Table~\ref{tab:chatbot}). All six sensitive questions were
 again handled safely. The seven partial answers are incomplete but not wrong: the chatbot
 either lists only part of the expected content or says that the excerpts do not answer the
 question. In two of them the retrieval missed the expected document.
@@ -740,8 +770,10 @@ make Active Learning look useful. With a fair protocol, no query strategy beat r
 sampling, and the classic strategies asked the expert about images where an error is
 cheap. Grad-CAM showed that the model also misses cancers it looked at, often with high
 confidence. Our agent therefore refers every suspicious or uncertain case to the clinician
-and logs the rest for review. Table~\ref{tab:hcai} relates these results to human-centred
-AI. The main difficulties were the limited memory of our hardware and the small, noisy
+and logs the rest for review. Its chatbot, after two rounds of rules, answered 23 of 30 test
+questions correctly and none wrongly, and never gave a diagnosis. The evaluation showed that
+false reassurance can be indirect, and that every change to the rules must be tested again.
+Table~\ref{tab:hcai} relates these results to human-centred AI. The main difficulties were the limited memory of our hardware and the small, noisy
 dataset.
 
 \begin{table}[t]
@@ -762,7 +794,7 @@ Explainability & Grad-CAM, checked against the lesion outlines, tells a misjudge
 from an overlooked one. \\
 Human control & The agent keeps the clinician in the loop for suspicious cases and on the
 loop for the rest. \\
-Communication & The chatbot answers from cited documents and never gives a diagnosis. \\
+Communication & The chatbot answers from cited documents and never gives a diagnosis; its rules were tested against indirect false reassurance. \\
 \bottomrule
 \end{tabular}
 \caption{How the project relates to human-centred AI.}
@@ -773,7 +805,9 @@ Communication & The chatbot answers from cited documents and never gives a diagn
 (i)~Query strategies that weigh uncertainty by the cost of each error and avoid redundant
 images; (ii)~showing the Grad-CAM with each AL query, so the expert
 can see whether the model looked at the lesion, and finer maps at higher resolution;
-(iii)~AL with the fine-tuned network and repeated grouped splits; and (iv)~a study with
+(iii)~AL with the fine-tuned network and repeated grouped splits; (iv)~better retrieval for
+the chatbot, for example by combining TF-IDF with a sentence-embedding model, and a check of
+the answers by clinicians, with several answers per question; and (v)~a study with
 clinicians and patients, measuring labelling time, the effect of showing the model's
 suggestion, and how patients understand the agent's messages.
 
