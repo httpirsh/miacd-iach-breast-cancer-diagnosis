@@ -359,7 +359,7 @@ image the lesion covers, which is what a map that ignores the image would obtain
 The agent is a prototype in a notebook (\texttt{04\_agente.ipynb}), not an application. For
 each ultrasound image it:
 \begin{enumerate}
-\item classifies the image with the MobileNetV2 of seed 1 and shows the Grad-CAM;
+\item classifies the image with the MobileNetV2 of seed 1 and computes its Grad-CAM;
 \item applies a \textbf{referral rule}: the case goes to the clinician if the model predicts
 \emph{malignant} or if the probability of the predicted class (its \emph{confidence}) is
 below a threshold $\tau$. No result is then communicated to the patient before the
@@ -822,8 +822,8 @@ suggestion, and how patients understand the agent's messages.
 
 % =====================================================================================
 \section*{Reproducibility}
-The repository (\url{https://github.com/httpirsh/miacd-iach-breast-cancer-diagnosis})
-contains the code (\texttt{src/}), the notebooks with their saved outputs, a
+The repository is available at
+\url{https://github.com/httpirsh/miacd-iach-breast-cancer-diagnosis}. It contains the code (\texttt{src/}), the notebooks with their saved outputs, a
 \texttt{requirements.txt} and a README with instructions to obtain the dataset and run the
 notebooks in order. Training is deterministic, so on the same hardware each seed reproduces the same model
 (another GPU or the CPU gives slightly different weights).
