@@ -372,6 +372,14 @@ The threshold $\tau$ is the smallest value, in steps of 0.01, with which at leas
 the malignant \emph{validation} images reach the clinician. It is chosen on validation and
 not on the test set, so that the test set still measures the rule on new images.
 
+The messages shown to the patient follow the same principle. For a referred case the patient
+only reads that the image was flagged for review by a clinician, with no class, confidence or
+heatmap, and that the flag alone does not mean there is a problem. For an automatic case the
+message gives the suggested class and the confidence, explains that the confidence is not the
+patient's risk of cancer and that the model can be wrong even when confident, and shows the
+heatmap with a note that its colours show what influenced the model, not whether or where
+there is a problem. Every message ends by saying that it is not a diagnosis.
+
 The chatbot uses RAG~\cite{lewis2020rag}. Medical documents for patients are split into
 chunks of about 800 characters. Each chunk is turned into a TF-IDF vector of character
 3- to 5-grams, which matches word variants such as \emph{maligno} and \emph{malignos}. On
@@ -412,8 +420,8 @@ balanced training set (1{,}554 images), with mini-batches of 32 and five seeds (
 configurations were chosen in preliminary runs with one seed: a learning rate of $0.001$
 with ReLU made the CNN learn, fine-tuning beat the frozen MobileNetV2, and neither
 $224\times224$ images nor a higher weight for malignant errors helped. Each
-run takes one to two minutes on the GPU. Training is reproducible: the same seed always
-gives the same model.
+run takes one to two minutes on the GPU. Training is reproducible: on the same hardware,
+the same seed always gives the same model.
 
 \paragraph{Experiment 2: active learning.} The pool is the 381 training images left with one
 image per scan, and the test set is the same 149 images as in Experiment~1
@@ -816,7 +824,8 @@ suggestion, and how patients understand the agent's messages.
 The repository (\url{https://github.com/httpirsh/miacd-iach-breast-cancer-diagnosis})
 contains the code (\texttt{src/}), the notebooks with their saved outputs, a
 \texttt{requirements.txt} and a README with instructions to obtain the dataset and run the
-notebooks in order. Training is deterministic, so each seed reproduces the same model.
+notebooks in order. Training is deterministic, so on the same hardware each seed reproduces the same model
+(another GPU or the CPU gives slightly different weights).
 Metrics are saved to \texttt{results/}, and the figures of this paper are generated from
 them, and from the saved model, by \texttt{report/figures/make\_figures.py}. The chatbot
 needs an IAedu API key, which is kept out of the repository.

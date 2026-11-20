@@ -14,13 +14,9 @@ Identificar casos de cancro da mama a partir de ecografias mamárias, com foco e
 - Exemplos de previsões do modelo (falsos negativos, outros erros, acertos) no notebook 01.
 - **Explicabilidade com Grad-CAM** (notebook 03): mapas de onde a MobileNetV2 olhou, comparados com o contorno das lesões desenhado pelos médicos. Quando deteta um cancro, o modelo olha sobretudo para a lesão; nos falsos negativos, umas vezes olha para a lesão e acha-a benigna, outras olha para o tecido ao lado. Enviar ao médico os casos com confiança abaixo de 90% apanharia 7 dos 10 falsos negativos, à custa de rever 41% das imagens.
 - Human-in-the-Loop: o humano pode dar as labels no notebook 02 (`HUMAN = True`).
-- **Protótipo do agente** (notebook 04): classifica a ecografia, mostra o Grad-CAM e decide para onde vai o caso. Se o modelo prevê maligno ou tem confiança abaixo de um limiar escolhido na validação, o caso vai sempre para o médico (Human-in-the-Loop); os outros ficam num log que o médico revê e corrige (Human-on-the-Loop). Tem um chatbot com RAG sobre documentos médicos, ligado ao LLM do [IAedu](https://iaedu.pt).
+- **Protótipo do agente** (notebook 04): classifica a ecografia, mostra o Grad-CAM e decide para onde vai o caso. Se o modelo prevê maligno ou tem confiança abaixo de um limiar escolhido na validação, o caso vai sempre para o médico (Human-in-the-Loop); os outros ficam num log que o médico revê e corrige (Human-on-the-Loop). Nos casos para o médico, o paciente não vê a classe, a confiança nem o mapa de cores. Tem um chatbot com RAG sobre documentos médicos, ligado ao LLM do [IAedu](https://iaedu.pt).
 - **Avaliação do chatbot** (notebook 04): 30 perguntas de teste respondidas pelo LLM e classificadas à mão (correta, parcial ou errada), com duas versões das regras do chatbot; as respostas estão em `results/avaliacao_chatbot_regras_v1.csv` e `results/avaliacao_chatbot.csv`.
 - **Documentos do chatbot** (`docs/rag/`): 19 textos para pacientes, em português, do SNS 24, da DGS, da Liga Portuguesa Contra o Cancro, de hospitais do SNS (São João, Santa Maria) e da Sociedade Portuguesa de Radiologia. Cobrem rastreio, ecografia e mamografia, BI-RADS, benigno e maligno, biópsia, limites dos exames e tratamento. A lista com os endereços e o que foi retirado de cada um está em `docs/rag/fontes.md`.
-
-## Próximos passos
-
-- Textos finais para o paciente (ver as issues).
 
 ## Estrutura do repositório
 
