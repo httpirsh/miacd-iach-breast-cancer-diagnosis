@@ -22,6 +22,8 @@
 \usepackage{booktabs}
 \usepackage{multirow}
 \usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta}
 
 \urlstyle{same}
 
@@ -357,7 +359,7 @@ image the lesion covers, which is what a map that ignores the image would obtain
 \subsection{Agent prototype}
 \label{sec:agent}
 The agent is a prototype in a notebook (\texttt{04\_agente.ipynb}), not an application. For
-each ultrasound image it:
+each ultrasound image it (Figure~\ref{fig:agent}):
 \begin{enumerate}
 \item classifies the image with the MobileNetV2 of seed 1 and computes its Grad-CAM;
 \item applies a \textbf{referral rule}: the case goes to the clinician if the model predicts
@@ -369,6 +371,39 @@ writes every case to a log that the clinician reviews and corrects: this is
 \textbf{Human-on-the-Loop};
 \item answers the patient's questions with a chatbot.
 \end{enumerate}
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+    font=\footnotesize, >={Stealth[length=1.8mm]},
+    box/.style={draw, rounded corners=2pt, align=center, inner sep=3pt},
+    human/.style={box, fill=red!8, text width=36mm},
+    auto/.style={box, fill=gray!12, text width=36mm}]
+  \node[box] (img) at (0,0) {Ultrasound image};
+  \node[box] (model) at (0,-9mm) {MobileNetV2 + Grad-CAM};
+  \node[box] (rule) at (0,-18mm) {Predicts \emph{malignant}, or confidence $<\tau$?};
+  \node[human, anchor=north] (doc) at (-20.5mm,-29mm)
+       {\textbf{Clinician decides}\\(Human-in-the-Loop)\\[1pt]
+        the patient only reads that the image will be reviewed};
+  \node[auto, anchor=north] (log) at (20.5mm,-29mm)
+       {\textbf{Automatic result}\\(Human-on-the-Loop)\\[1pt]
+        written to a log that the clinician reviews};
+  \node[box, anchor=north, text width=77mm] (chat) at (0,-54mm)
+       {\textbf{Chatbot}: question $\to$ 4 excerpts from 19 documents (TF-IDF)
+        $\to$ GPT-5.5 with the rules $\to$ answer citing the excerpts};
+  \draw[->] (img) -- (model);
+  \draw[->] (model) -- (rule);
+  \draw (rule.south) -- ++(0,-2.5mm) coordinate (split);
+  \draw[->] (split) -| node[pos=0.75, left] {yes} (doc.north);
+  \draw[->] (split) -| node[pos=0.75, right] {no} (log.north);
+  \draw[->] (doc.south) -- node[right, font=\scriptsize] {no class} (doc.south |- chat.north);
+  \draw[->] (log.south) -- node[left, font=\scriptsize] {class, confidence} (log.south |- chat.north);
+\end{tikzpicture}
+\caption{The agent prototype. Suspicious or uncertain cases reach the clinician before any
+result reaches the patient; the others are decided automatically and logged for review. For
+a referred case the chatbot is not given the predicted class.}
+\label{fig:agent}
+\end{figure}
+
 The threshold $\tau$ is the smallest value, in steps of 0.01, with which at least 95\% of
 the malignant \emph{validation} images reach the clinician. It is chosen on validation and
 not on the test set, so that the test set still measures the rule on new images.
@@ -428,8 +463,7 @@ the same seed always gives the same model.
 image per scan, and the test set is the same 149 images as in Experiment~1
 (Table~\ref{tab:params}). Each of the 4 strategies is run with 20 seeds, 80 runs in total,
 which take under a minute. As a reference, the same classifier trained on the whole pool
-reaches accuracy 0.785 and malignant recall 0.718 (11 false negatives of 39), close to the
-fine-tuned MobileNetV2.
+reaches an accuracy of 0.785, close to the fine-tuned MobileNetV2.
 
 \begin{table}[t]
 \centering
@@ -453,8 +487,8 @@ Human & simulated (dataset label) \\
 \end{table}
 
 \paragraph{Experiment 3: explainability.} Grad-CAM is computed for the 149 test images with
-the MobileNetV2 of seed 1 (accuracy 0.799, malignant recall 0.744, 10 false negatives). It
-is compared with the lesion masks of the 121 test images that have a lesion.
+the MobileNetV2 of seed 1, which misses 10 of the 39 cancers, and compared with the lesion
+masks of the 121 test images that have a lesion.
 
 \paragraph{Experiment 4: agent.} The referral rule of Section~\ref{sec:agent} is set on the
 127 validation images and applied to the 149 test images, with the same model as in
@@ -470,10 +504,10 @@ chatbot's rules (Section~\ref{sec:agent}).
 \label{sec:results}
 
 \subsection{Passive learning}
-\textbf{MobileNetV2 is the best model} (Table~\ref{tab:passive}), with accuracy 0.804 against
-0.609 for the CNN. The CNN reaches a similar malignant recall only by calling many benign
+\textbf{MobileNetV2 is the best model} (Table~\ref{tab:passive}), with an accuracy of 0.804
+against 0.609 for the CNN. The CNN detects as many cancers only because it calls many benign
 and normal images malignant. Even MobileNetV2 misses 10 to 15 of the 39 cancers, depending
-on the seed. Both models overfit: their training accuracy is close to 1.
+on the seed, and both models overfit.
 
 \begin{table}[t]
 \centering
@@ -498,9 +532,10 @@ of a scan could fall in both training and test.}
 \end{table}
 
 \textbf{Repeated scans inflated our first results.} On our first split, by file,
-MobileNetV2 reached 0.840 accuracy and 0.802 malignant recall (bottom row of
-Table~\ref{tab:passive}). Part of that came from test images the model had, in effect,
-already seen. Most missed cancers are predicted as \emph{benign} (Figure~\ref{fig:cm}).
+MobileNetV2 reached an accuracy of 0.840 instead of 0.804 (bottom row of
+Table~\ref{tab:passive}). Part of the difference came from test images the model had, in
+effect, already seen. Most missed cancers are predicted as \emph{benign}
+(Figure~\ref{fig:cm}).
 
 \begin{figure}[t]
 \centering
@@ -515,11 +550,11 @@ and row percentages). False negatives are in the \emph{malignant} row, \emph{nor
 Figure~\ref{fig:curves} shows the learning curves and Table~\ref{tab:al} the values at
 selected numbers of labels.
 
-\paragraph{No strategy beats random sampling.} In accuracy, margin and malignant are level
-with random sampling up to about 200 labels, and below it at 270 labels (0.783--0.788
-against 0.805). Over the whole curve, random sampling scores higher in 14 of the 20 repetitions against
-margin and malignant, and in 16 against least confidence, where equally good strategies would
-give about 10.
+\paragraph{No strategy beats random sampling.} In accuracy, margin and malignant sampling
+stay level with random sampling until about 200 labels and then fall behind it
+(Table~\ref{tab:al}). Over the whole curve, random sampling wins most of the paired
+repetitions: 16 of 20 against least confidence and 14 against the other two, where two
+equally good strategies would each win about 10.
 
 \begin{figure*}[t]
 \centering
@@ -557,10 +592,10 @@ for accuracy and 0.03--0.11 for recall).}
 \label{tab:al}
 \end{table}
 
-\paragraph{Least confidence detects fewer cancers early.} With 100 labels, random sampling
-detects 65.1\% of the cancers and least confidence 57.8\%. With 270 labels all strategies
-reach a malignant recall of about 0.70. Over the whole curve the differences in malignant
-recall are small: random sampling is higher in 12 or 13 of the 20 repetitions.
+\paragraph{Least confidence detects fewer cancers early.} With 100 labels it detects 58\% of
+the cancers, against 65\% for random sampling. Later the strategies converge, and over the
+whole curve the differences in malignant recall are small: random sampling is higher in only
+12 or 13 of the 20 repetitions.
 
 
 \subsection{Explainability}
@@ -607,17 +642,16 @@ image covered by the lesion, which a map that ignores the image would also obtai
 \end{table}
 
 \textbf{The model is often confident when it is wrong.} Three of the ten missed cancers are predicted
-benign with a probability of at least 97\%, and nine of them receive a malignancy
-probability below 25\%. The model's confidence alone is therefore not enough to
+benign with a probability of at least 97\%, and nine of them are given less than a
+25\% probability of being malignant. The model's confidence alone is therefore not enough to
 decide which cases a clinician must see.
 
 \subsection{Agent prototype}
 \textbf{The referral rule sends 36 of the 39 cancers to the clinician}
-(Table~\ref{tab:agent}). The threshold chosen on validation is $\tau=0.88$. On the test set
-the clinician sees 82 of the 149 images (55\%), including the 29 cancers the model detects
-and 7 of the 10 it misses. The other 67 images are decided automatically, and 8 of these
-decisions are wrong: five benign images called normal, and three cancers called benign with
-97--99\% confidence. Catching these three is the job of the clinician's review of the log
+(Table~\ref{tab:agent}), with the threshold $\tau=0.88$ chosen on validation. The clinician
+sees 55\% of the test images, including 7 of the 10 cancers the model misses. Of the images
+decided automatically, 8 are wrong, and three of these are cancers called benign with
+97--99\% confidence. Catching them is the job of the clinician's review of the log
 (Human-on-the-Loop).
 
 \begin{table}[t]
@@ -644,17 +678,14 @@ the chatbot answered ``No.'' to ``Does this mean I have cancer?'' when the model
 predicted benign with 99\% confidence. That is false reassurance, since the model misses
 cancers with such confidence, so we added the rule against answering yes or no.
 
-With this rule and the 19 documents, the expected document was among the four excerpts for
-21 of the 24 information questions (Table~\ref{tab:chatbot}). We rated 19 answers correct,
-8 partial and 3 wrong. All six questions that had to be declined or answered with care were
-handled safely: no diagnosis, no painkiller, no choice of treatment, and the advice to keep
-the appointment. The problems were subtler. The chatbot brought up the model's ``benign with
-99\% confidence'' even in general questions, and twice it did not answer the question at all
-(``Is breast cancer curable?'' and how long the screening result takes). It called the
-result ``reassuring'' in three answers. Asked about a hard, irregular lump, it quoted a
-document saying such a lump is ``probably'' cancer and then repeated the benign result. The
-other partial answers were incomplete rather than wrong: they gave only part of the expected
-content, or said that the excerpts did not answer the question.
+With this rule we rated 19 answers correct, 8 partial and 3 wrong
+(Table~\ref{tab:chatbot}). All six sensitive questions were handled safely: no diagnosis, no
+painkiller, no choice of treatment, and the advice to keep the appointment. The problems
+were subtler. The chatbot brought up the model's benign result even in general questions,
+and twice it did not answer the question at all (``Is breast cancer curable?'' and how long
+the screening result takes). It called the result ``reassuring'' in three answers. Asked
+about a hard, irregular lump, it quoted a document saying such a lump is ``probably'' cancer
+and then repeated the benign result.
 
 \begin{table}[t]
 \centering
@@ -676,23 +707,21 @@ rules. Retrieval does not depend on the rules.}
 \label{tab:chatbot}
 \end{table}
 
-The new rules (Section~\ref{sec:agent}) fixed these answers. The cure question was answered,
-the lump was sent to the clinician without the contradiction, and the result was no longer
-called reassuring. Two problems remained. The answer to ``Does this mean I have cancer?''
-started with ``No.'' again, followed by ``this result does not tell whether you have cancer
-or not''. The screening-time question got no answer at all, only ``Understood, I am ready to
-answer following these rules'', in three of three attempts. The question came last, right
-after an excerpt that ended in a heading, and the model did not take it as the question. We
-added a rule against starting such an answer with ``Yes'' or ``No'', and now put the question
-before the excerpts and repeat it at the end. With these changes, all 30 answers cited an
-excerpt and we rated 23 correct, 7 partial and none wrong (Table~\ref{tab:chatbot}). All six sensitive questions were
-again handled safely. The seven partial answers are incomplete but not wrong: the chatbot
-either lists only part of the expected content or says that the excerpts do not answer the
-question. In two of them the retrieval missed the expected document.
+The new rules (Section~\ref{sec:agent}) fixed these answers: the cure question was answered,
+the lump was sent to the clinician, and the result was no longer called reassuring. Two
+problems remained. The answer to ``Does this mean I have cancer?'' started with ``No.''
+again, although the next sentence said the result could not tell. The screening-time
+question got only ``Understood, I am ready to answer following these rules'', three times
+out of three: it came last, right after an excerpt that ended in a heading, and the model
+did not take it as the question. We forbade starting such an answer with ``Yes'' or ``No'',
+and now put the question both before and after the excerpts. With these changes we rated 23
+answers correct, 7 partial and none wrong; every answer cited an excerpt, and the six
+sensitive questions were again handled safely. The partial
+answers are incomplete, not wrong: they give only part of the expected content or say that
+the excerpts do not answer the question. In two of them the retrieval missed the expected
+document, which it found for 21 of the 24 information questions.
 
 % =====================================================================================
-\newpage   % column break: the heading does not fit at the bottom of the column, and without
-           % this the column is stretched, leaving a gap under Table~\ref{tab:chatbot}
 \section{Discussion}
 \label{sec:discussion}
 
