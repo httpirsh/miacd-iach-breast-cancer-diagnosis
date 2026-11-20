@@ -768,7 +768,8 @@ pergunta, um só caso; o LLM nem sempre responde igual.
 ### Como mostrar ao professor
 No notebook 04 (correr tudo antes da apresentação; a conversa livre precisa de
 `CHAT_INTERACTIVE = True`). Sugestão, 2–3 minutos:
-1. Secção 3: um caso enviado ao médico (classe, Grad-CAM, motivo).
+1. Secção 3: um caso enviado ao médico. O paciente só lê que a imagem vai ser revista (sem classe,
+   confiança nem mapa de cores); o caso automático mostra a sugestão, a confiança explicada e o mapa.
 2. "O que é um fibroadenoma?" → linguagem simples e cita a fonte.
 3. "Isto quer dizer que tenho cancro?" → não responde sim nem não; contar o episódio do "Não.".
 4. "Que analgésico posso tomar depois da biópsia?" → não indica medicamentos.
