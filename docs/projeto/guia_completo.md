@@ -32,6 +32,7 @@ e as perguntas que podem surgir na apresentação. Os números são os do relat�
 19. [Perguntas prováveis e respostas](#19-perguntas-prováveis-e-respostas)
 20. [Glossário](#20-glossário)
 21. [Sugestão de apresentação](#21-sugestão-de-apresentação)
+22. [As partes difíceis e como explicá-las](#22-as-partes-difíceis-e-como-explicá-las)
 
 ---
 
@@ -1111,3 +1112,87 @@ divisões; melhor pesquisa no chatbot; estudo com médicos e pacientes.
 
 **História:** *"O que parecia um ganho era um artefacto, e o que o modelo pergunta ao médico
 importa."*
+
+---
+
+## 22. As partes difíceis e como explicá-las
+
+Para ler antes da apresentação. O resto do guia é para estudar; isto é **o que dizer**.
+
+### O fio condutor (dizer no início e no fim)
+O projeto tem quatro partes (dados, AL, Grad-CAM, agente com chatbot). Sem um fio, parecem quatro
+trabalhos colados. O fio é:
+
+> **"O que importa é o que o sistema pergunta ou mostra ao humano."**
+> - O **AL** escolhe o que perguntar ao médico, e as estratégias clássicas perguntam o que não
+>   interessa (normal ou benigno?) em vez do que interessa (é cancro?).
+> - O **Grad-CAM** mostra ao médico onde o modelo olhou.
+> - O **agente** decide quando o médico tem de ver o caso.
+> - O **chatbot** decide o que o paciente lê.
+
+E a história: *"O que parecia um ganho era um artefacto, e o que o modelo pergunta ao médico
+importa."*
+
+### As partes difíceis, da mais difícil para a mais fácil
+
+**1. Porque é que o leakage fazia o AL parecer bom** (a mais importante: sustenta o achado
+principal)
+- Em 10 segundos: *"O leakage não ajudava o AL: prejudicava a escolha ao acaso. Um quinto dos
+  ficheiros são cópias. O acaso gastava anotações em cópias de ecografias já anotadas, que não
+  ensinam nada; as estratégias de incerteza evitavam-nas, porque o modelo já está confiante numa
+  imagem cuja cópia viu. Sem cópias, a vantagem desaparece."*
+- Se insistirem: é uma explicação **plausível**, não a medimos separadamente. O que medimos é que
+  a poupança de 24% (190 vs 250 anotações) desaparece com a divisão por ecografia.
+
+**2. Porque é que o AL não funciona aqui**
+- Em 10 segundos: *"Três razões plausíveis: as features pré-treinadas já separam bem as classes,
+  por isso poucas imagens ao acaso chegam; as imagens incertas são as mais ambíguas, e essas são
+  também as que mais vezes têm labels erradas; e com 381 imagens há pouca margem para escolher."*
+- A palavra-chave é **"plausíveis"**: não as separámos experimentalmente. Não afirmar mais do que
+  isso.
+
+**3. O modelo do AL é uma regressão logística, não a CNN**
+- Em 10 segundos: *"No AL usamos a MobileNetV2 só para descrever cada imagem com 1280 números. O
+  que aprende ao longo do AL é uma camada simples por cima, porque retreinar a rede 25 vezes em 80
+  corridas não cabia na nossa GPU. É o mesmo que treinar só a última camada da rede."*
+- Se perguntarem "então as conclusões valem para a CNN afinada?": *"Talvez não; está nas
+  limitações e no trabalho futuro."* Com o pool todo, este classificador chega a 0.785, perto da
+  rede afinada (0.804).
+
+**4. "Incerteza não é risco"**
+- Usar o **exemplo das três imagens** (secção 9): A é uma dúvida normal/benigno, B é uma dúvida "é
+  cancro?". Least confidence e margin acham-nas igualmente úteis; para o médico, só a B interessa.
+- Em 10 segundos: *"As estratégias clássicas medem a dúvida do modelo, não o custo do erro. Gastam
+  perguntas onde errar custa pouco."*
+- E a nossa estratégia "malignant"? *"Pergunta mais sobre cancros (38% contra 31%), mas não deteta
+  mais: as imagens com 50% de maligno voltam a ser as mais ambíguas."*
+
+**5. A contagem de vitórias (12 em 20, 16 em 20)**
+- Em 10 segundos: *"São 20 jogos entre o acaso e cada estratégia, começando das mesmas 20
+  imagens. Se fossem igualmente boas, cada uma ganhava cerca de 10. O acaso ganha 16 em 20 na
+  accuracy contra a least confidence: isso é claro. No recall, 12 ou 13 em 20 está perto de 10:
+  evidência fraca, e dizemo-lo."*
+
+### O que basta dizer numa frase (aprofundar só se perguntarem)
+- **Grad-CAM = CAM nesta rede:** *"Nesta rede os gradientes são os pesos da última camada, por
+  isso o mapa é o mesmo; o código nem precisa de gradientes."*
+- **τ = 0.88:** *"O menor limiar com que 95% dos cancros de validação chegam ao médico. Escolhido
+  na validação, não no teste."*
+- **TF-IDF com grupos de letras:** *"Compara grupos de 3 a 5 letras, por isso apanha 'maligno' e
+  'malignos'. Empatou com embeddings e é mais simples."*
+- **Treino determinístico:** *"A mesma seed dá o mesmo modelo, no mesmo hardware."*
+- **StratifiedGroupKFold:** *"Divide mantendo as proporções das classes e todas as cópias da mesma
+  ecografia no mesmo conjunto."*
+
+### O que é fácil (e convence): mostrar em vez de explicar
+- **As repetidas:** duas imagens lado a lado que são a mesma ecografia.
+- **O agente:** 36 de 39 cancros chegam ao médico; 3 escapam com 97–99% de confiança.
+- **O "Não." do chatbot:** numa frase mostra porque é que um chatbot médico é perigoso.
+
+### Regras para as respostas
+- Se não souber, dizer *"não medimos isso"* em vez de inventar. As limitações (secção 15) são uma
+  defesa, não uma fraqueza.
+- Não dizer "o AL não funciona": dizer *"não poupou anotações neste problema, com um protocolo
+  justo"*.
+- Não dizer que o chatbot "nunca erra": dizer *"nas 30 perguntas de teste não deu respostas
+  erradas"*.
