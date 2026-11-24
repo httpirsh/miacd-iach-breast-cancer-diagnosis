@@ -56,10 +56,9 @@ Labelling medical images costs scarce expert time. We ask whether Active Learnin
 which an expert labels only the images the model selects, can reduce this effort for a
 breast ultrasound classifier without missing more cancers. We first found that the public
 dataset we use stores many scans more than once: its 780 files hold only 601 distinct
-scans. Splitting by scan instead of by file lowers the accuracy of a fine-tuned MobileNetV2
-from 0.840 to 0.804, and an apparent 24\% AL label saving disappears. On the leakage-free
-split, over 20 paired repetitions, no query strategy beats random sampling, and the
-uncertainty-based ones detect fewer cancers early on. Grad-CAM maps, checked against the
+scans. Once we split by scan, an apparent 24\% AL label saving disappears: no query
+strategy beats random sampling, and the uncertainty-based ones detect fewer cancers early
+on. Grad-CAM maps, checked against the
 lesions outlined by clinicians, show that the model looks at the lesion when it finds a
 cancer, but also misses cancers with high confidence. We use these findings in a
 patient-facing agent prototype that sends uncertain and suspicious cases to the clinician
@@ -267,8 +266,7 @@ notebooks on a laptop with a 4\,GB NVIDIA RTX~3050 GPU and 13\,GB of RAM.
 \subsection{Pre-processing}
 Images are converted to one grey-level channel, since ultrasound is monochromatic, resized
 to $128\times128$ pixels and scaled to $[0,1]$. We first used $224\times224$, but the AL
-notebook ran out of RAM on our machine. At $128\times128$ all images take about 120\,MB
-instead of 367\,MB, and MobileNetV2 did not perform better at $224\times224$.
+notebook ran out of memory, and MobileNetV2 did not perform better at that size.
 
 \subsection{Passive learning models}
 \paragraph{CNN trained from scratch.}
@@ -347,9 +345,9 @@ Grad-CAM shows which regions of an image raised the score of a class~\cite{selva
 We apply it to the MobileNetV2 of seed 1. Its last convolutional layer divides a
 $128\times128$ image into a grid of $4\times4$ regions and describes each region with 1{,}280
 features. The output layer gives each feature a weight for each class, and the map of a
-class is, in each region, the sum of the features multiplied by these weights. Grad-CAM
+class is, in each region, the sum of the features multiplied by these weights.\footnote{Grad-CAM
 computes the weights from gradients; in this network the gradients are exactly the
-output-layer weights up to a constant, so the map is the same. The grid is coarse: the map
+output-layer weights up to a constant, so the map is the same.} The grid is coarse: the map
 shows the region the model used, not the exact outline of the lesion.
 
 For each test image with a lesion we compare the map with the clinicians' mask. We measure
@@ -425,13 +423,8 @@ the most similar vectors are sent to the language model together with the questi
 rules. The model must write plain European Portuguese and use only the excerpts, citing them
 by number. It must never give a diagnosis, never answer ``yes'' or ``no'' to ``do I have
 cancer?'', and never recommend medication, and it should suggest talking to the clinician.
-After the first evaluation (Section~\ref{sec:results-chatbot}) we added four rules: answer
-the question first and mention the model's result only when the question is about the
-patient's exam; never call the result reassuring; never apply to the patient what a document
-says about the probability of cancer, and send any symptom the patient describes to the
-clinician whatever the model says; and address the patient formally. We also forbade starting
-the answer to ``do I have cancer?'' with ``yes'' or ``no'', and placed the question both
-before and after the excerpts.
+The first evaluation led us to add rules against indirect false reassurance
+(Section~\ref{sec:results-chatbot}).
 When a case has been referred, the chatbot is told only that the exam will be reviewed, so
 that the predicted class cannot reach the patient before the clinician sees the exam.
 
@@ -497,8 +490,8 @@ the case of a test image decided automatically (benign with 99\% confidence), wh
 reassurance is most likely. We check whether the expected document is among the four
 excerpts and whether the answer cites them, and we rate each answer by hand against the
 expected one as correct, partial or wrong. This combines automatic checks with human
-judgement, as recommended for evaluating agents~\cite{grace2026evals}. We ran this evaluation with two versions of the
-chatbot's rules (Section~\ref{sec:agent}).
+judgement, as recommended for evaluating agents~\cite{grace2026evals}. We ran this evaluation
+twice: with the first rules, and with the rules we added after it.
 
 % =====================================================================================
 \section{Results}
@@ -683,8 +676,7 @@ With this rule we rated 19 answers correct, 8 partial and 3 wrong
 (Table~\ref{tab:chatbot}). All six sensitive questions were handled safely: no diagnosis, no
 painkiller, no choice of treatment, and the advice to keep the appointment. The problems
 were subtler. The chatbot brought up the model's benign result even in general questions,
-and twice it did not answer the question at all (``Is breast cancer curable?'' and how long
-the screening result takes). It called the result ``reassuring'' in three answers. Asked
+and twice it did not answer the question at all. It called the result ``reassuring'' in three answers. Asked
 about a hard, irregular lump, it quoted a document saying such a lump is ``probably'' cancer
 and then repeated the benign result.
 
@@ -708,14 +700,15 @@ rules. Retrieval does not depend on the rules.}
 \label{tab:chatbot}
 \end{table}
 
-The new rules (Section~\ref{sec:agent}) fixed these answers: the cure question was answered,
-the lump was sent to the clinician, and the result was no longer called reassuring. Two
-problems remained. The answer to ``Does this mean I have cancer?'' started with ``No.''
-again, although the next sentence said the result could not tell. The screening-time
-question got only ``Understood, I am ready to answer following these rules'', three times
-out of three: it came last, right after an excerpt that ended in a heading, and the model
-did not take it as the question. We forbade starting such an answer with ``Yes'' or ``No'',
-and now put the question both before and after the excerpts. With these changes we rated 23
+We therefore added rules: answer the question first, and mention the model's result only
+when the question is about the patient's exam; never call the result reassuring; never
+apply to the patient what a document says about the probability of cancer, and send any
+symptom the patient describes to the clinician, whatever the model says; and address the
+patient formally. These rules fixed the answers above. Two problems remained: the answer to
+``Does this mean I have cancer?'' again started with ``No.'', and one question went
+unanswered because the model did not recognise it as the question. We forbade starting such
+an answer with ``Yes'' or ``No'', and repeated the question after the excerpts. With these
+changes we rated 23
 answers correct, 7 partial and none wrong; every answer cited an excerpt, and the six
 sensitive questions were again handled safely. The partial
 answers are incomplete, not wrong: they give only part of the expected content or say that
@@ -788,21 +781,22 @@ rules have to be tested again after every change. The prototype sends the extern
 excerpts and the case summary, and no personal data.
 
 \paragraph{Limitations.}
-The test set is small (149 images, 39 malignant): one false negative changes malignant
-recall by 2.6 points, and all runs share one data split. The 0.95 threshold for repeated
-scans was set by hand. The preliminary configurations were
-compared on the test set of the first split, so the model choice is partly informed by test
-data; within the AL experiments, no choice used the test set. AL uses a linear classifier on
-frozen features rather than the fine-tuned network, so its conclusions may not transfer
-unchanged to a fine-tuned model. Rotations of 90$^\circ$ and 180$^\circ$ produce images a
-scanner never produces. Grad-CAM and the agent use a single model (seed 1). The chatbot was
-rated by us, not by clinicians or patients, on 30 questions with a single case and one answer
-per question. Since the language model does not always give the same answer, agent
-evaluations should run several trials per question, count a question as safe only if every
-trial is, and check that two raters agree~\cite{grace2026evals}; ours did neither. Finally, with 20
-repetitions, counts such as 12 of 20 are close to what chance alone would give (10), so the
-differences in malignant recall over the whole curve are weak evidence; the early gap and the
-accuracy differences are clearer.
+\emph{Data.} The test set is small (149 images, 39 malignant): one false negative changes
+malignant recall by 2.6 points. All runs share one data split, and the 0.95 threshold for
+repeated scans was set by hand. Rotations of 90$^\circ$ and 180$^\circ$ produce images a
+scanner never produces.
+\emph{Models.} The preliminary configurations were compared on the test set of the first
+split, so the model choice is partly informed by test data; within the AL experiments, no
+choice used the test set. AL uses a linear classifier on frozen features, so its conclusions
+may not transfer to a fine-tuned network. Grad-CAM and the agent use a single model (seed 1).
+With 20 repetitions, counts such as 12 of 20 are close to chance (10), so the differences in
+malignant recall over the whole curve are weak evidence; the early gap and the accuracy
+differences are clearer.
+\emph{Chatbot.} We rated the answers ourselves, not clinicians or patients, on 30 questions
+with a single case and one answer per question. Since the language model does not always
+give the same answer, agent evaluations should run several trials per question, count a
+question as safe only if every trial is, and check that two raters
+agree~\cite{grace2026evals}; ours did neither.
 
 % =====================================================================================
 \section{Conclusion}
