@@ -496,7 +496,8 @@ Experiment~3. The chatbot is asked the 30 test questions, each in a new conversa
 the case of a test image decided automatically (benign with 99\% confidence), where false
 reassurance is most likely. We check whether the expected document is among the four
 excerpts and whether the answer cites them, and we rate each answer by hand against the
-expected one as correct, partial or wrong. We ran this evaluation with two versions of the
+expected one as correct, partial or wrong. This combines automatic checks with human
+judgement, as recommended for evaluating agents~\cite{grace2026evals}. We ran this evaluation with two versions of the
 chatbot's rules (Section~\ref{sec:agent}).
 
 % =====================================================================================
@@ -796,7 +797,9 @@ frozen features rather than the fine-tuned network, so its conclusions may not t
 unchanged to a fine-tuned model. Rotations of 90$^\circ$ and 180$^\circ$ produce images a
 scanner never produces. Grad-CAM and the agent use a single model (seed 1). The chatbot was
 rated by us, not by clinicians or patients, on 30 questions with a single case and one answer
-per question, and the language model does not always give the same answer. Finally, with 20
+per question. Since the language model does not always give the same answer, agent
+evaluations should run several trials per question, count a question as safe only if every
+trial is, and check that two raters agree~\cite{grace2026evals}; ours did neither. Finally, with 20
 repetitions, counts such as 12 of 20 are close to what chance alone would give (10), so the
 differences in malignant recall over the whole curve are weak evidence; the early gap and the
 accuracy differences are clearer.
