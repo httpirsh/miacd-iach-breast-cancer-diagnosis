@@ -438,7 +438,7 @@ Cada estratégia × 20 seeds = 80 corridas no total, em menos de 1 minuto.
   pool (0.785). Mostra que diferenças de poucos pontos dependem muito de *quais* imagens se anotam.
 
 **Que imagens pede cada estratégia:**
-- Random segue o pool: 16% normais, 53% benignas, 31% malignas.
+- Random segue o pool (16% normais, 53% benignas, 31% malignas): pede 16%, 53% e 30%.
 - Least confidence e margin pedem **mais normais** (20–21%), menos benignas (48%), malignas iguais
   (32%) → gastam anotações na fronteira normal/benigno.
 - Malignant pede **mais malignas** (38%), mas **não deteta mais cancros**.
@@ -1164,7 +1164,7 @@ principal)
   cancro?". Least confidence e margin acham-nas igualmente úteis; para o médico, só a B interessa.
 - Em 10 segundos: *"As estratégias clássicas medem a dúvida do modelo, não o custo do erro. Gastam
   perguntas onde errar custa pouco."*
-- E a nossa estratégia "malignant"? *"Pergunta mais sobre cancros (38% contra 31%), mas não deteta
+- E a nossa estratégia "malignant"? *"Pergunta mais sobre cancros (38% contra 31% no pool), mas não deteta
   mais: as imagens com 50% de maligno voltam a ser as mais ambíguas."*
 
 **5. A contagem de vitórias (12 em 20, 16 em 20)**

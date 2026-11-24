@@ -338,7 +338,7 @@ Malignant (ours) & the probability of \emph{malignant} is closest to 50\% \\
 \paragraph{The human in the loop.} With the \texttt{HUMAN} option on, each selected image is
 shown in the notebook with the model's suggested class, and the annotator types the correct
 class. The model is trained with the typed label, even if it is wrong, as in a real
-deployment. Answering 250 queries in each of 100 experiments is not feasible for a person.
+deployment. Answering 250 queries in each of the 80 runs is not feasible for a person.
 In the quantitative experiments the human is therefore simulated with the dataset label,
 which corresponds to an expert who never errs~\cite{budd2021survey}.
 
@@ -751,7 +751,7 @@ The classic strategies treat the three classes equally. They spend part of the b
 images torn between \emph{normal} and \emph{benign}, where an error is cheap: 20--21\% of
 the images queried by least confidence and margin are normal, against 16\% for random
 sampling. Least confidence also detects fewer cancers early on. In a screening tool this is the wrong trade-off.
-Our malignant strategy asks about more cancers (38\% of its queries, against 31\%), but
+Our malignant strategy asks about more cancers (38\% of its queries, against 31\% of the pool), but
 does not detect more of them, perhaps
 because the images closest to a 50\% probability of malignancy are again the most ambiguous
 ones.
