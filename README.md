@@ -45,14 +45,22 @@ Identificar casos de cancro da mama a partir de ecografias mamárias, com foco e
 │   ├── rag/                         # documentos médicos usados pelo chatbot (fontes em fontes.md)
 │   └── dataset/                     # metadados e licença do dataset
 ├── report/                          # relatório final em LaTeX (template IJCAI-ECAI 26)
-├── results/                         # métricas guardadas pelos notebooks (criada ao correr)
+│   └── figures/make_figures.py      # gera as figuras do relatório a partir de results/
+├── results/                         # métricas guardadas pelos notebooks (as usadas no relatório estão versionadas)
 ├── models/                          # MobileNetV2 treinada pelo notebook 01 (não versionada)
 └── data/                            # dataset (não versionado, ver abaixo)
 ```
 
 ## Dataset
 
-[Breast Ultrasound Images](https://datasetninja.com/breast-ultrasound-images) (CC0 1.0). Não está incluído no repositório por ser demasiado pesado. Para reproduzir os notebooks, descarregar e colocar em `data/breast-ultrasound-images-DatasetNinja/`, mantendo a estrutura `ds/img/` e `ds/ann/`.
+[Breast Ultrasound Images](https://datasetninja.com/breast-ultrasound-images) (CC0 1.0). Não está incluído no repositório por ser demasiado pesado. Para reproduzir os notebooks, descarregar o arquivo na página do Dataset Ninja e extraí-lo para `data/breast-ultrasound-images-DatasetNinja/`. No fim, a estrutura deve ser:
+
+```
+data/breast-ultrasound-images-DatasetNinja/
+└── ds/
+    ├── img/    # as 780 ecografias (.png)
+    └── ann/    # uma anotação .json por imagem (classe e contorno da lesão)
+```
 
 ## Como correr
 
@@ -90,3 +98,18 @@ IAEDU_CHANNEL_ID=...
 ```
 
 O `.env` está no `.gitignore`: a chave nunca vai para o git. Sem `.env`, o notebook 04 corre na mesma e o chatbot mostra só a pesquisa nos documentos.
+
+## Reproduzir as figuras e o relatório
+
+Os resultados usados no relatório já estão em `results/` (`passive_learning.json`, `active_learning.json` e as avaliações do chatbot). Por isso, as figuras do Active Learning e a matriz de confusão podem ser geradas sem treinar de novo. A figura do Grad-CAM precisa também do dataset e do modelo guardado pelo notebook 01 (`models/mobilenet.keras`).
+
+```bash
+# a partir da raiz do repositório, com o .venv ativo
+python report/figures/make_figures.py      # escreve os PDFs em report/figures/
+
+# compilar o relatório
+cd report
+pdflatex main && bibtex main && pdflatex main && pdflatex main   # gera report/main.pdf
+```
+
+Em alternativa, carregar a pasta `report/` no Overleaf e compilar `main.tex` com pdfLaTeX.
