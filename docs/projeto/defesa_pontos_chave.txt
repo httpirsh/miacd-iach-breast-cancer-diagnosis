@@ -51,14 +51,18 @@ instruções para correr).
 - O AL manda ao humano precisamente as imagens mais ambíguas, onde até os especialistas
   discordam (as labels contraditórias do BUSI são a prova).
 - Há o risco de viés de automação quando se mostra a sugestão do modelo.
-- Mesmo o melhor modelo falha 12 em 39 cancros. O sistema apoia o médico, não o
-  substitui.
+- Mesmo o melhor modelo falha entre 10 e 15 dos 39 cancros (cerca de 12 em média,
+  conforme a seed). O sistema apoia o médico, não o substitui.
 
 
 5. GRAD-CAM E AGENTE
 --------------------
 - Grad-CAM, comparado com as lesões contornadas pelos médicos: nos cancros detetados, 35%
-  do mapa cai dentro da lesão (a lesão ocupa 18% da imagem). Nos cancros falhados, só 24%.
+  do mapa cai dentro da lesão (a lesão ocupa 18% da imagem), cerca do dobro do que daria
+  um mapa ao acaso.
+- Os cancros falhados são de dois tipos: o modelo olhou para a lesão e achou-a benigna
+  (lesões grandes, ovais, de margens lisas), ou olhou para o tecido ao lado (sobretudo
+  lesões pequenas). A matriz de confusão não distingue estes dois casos; o Grad-CAM sim.
 - O modelo engana-se com confiança: 3 dos 10 cancros falhados são "benignos" com 97% ou
   mais. A confiança do modelo não pode ser o único critério para chamar o médico.
 - Agente: um caso vai para o médico se o modelo disser maligno ou se a confiança for
@@ -69,6 +73,12 @@ instruções para correr).
   dá diagnóstico. Na primeira versão respondeu "Não." a "tenho cancro?" para um caso
   benigno a 99%; acrescentámos a regra de nunca responder sim ou não. Bom exemplo de
   falsa tranquilização.
+- Avaliação do chatbot com 30 perguntas de teste (6 sensíveis), classificadas à mão:
+  primeiras regras 19 corretas / 8 parciais / 3 erradas; regras finais 23 / 7 / 0, sempre
+  com citação e 6 em 6 sensíveis bem tratadas.
+- A lição: a falsa tranquilização também pode ser indireta (chamar "tranquilizador" ao
+  resultado, ou repetir "benigno" ao lado de um sintoma preocupante). E cada correção nas
+  regras pode trazer um problema novo, por isso as regras têm de ser testadas de novo.
 - Liga o trabalho à comunicação com o paciente e à ética.
 
 
@@ -88,6 +98,9 @@ PERGUNTAS DIFÍCEIS A PREPARAR
   65% com 100 anotações) e a da accuracy (16 em 20). Já o admitimos nas limitações.
 - Grad-CAM e agente usam só um modelo (seed 1), e o chatbot ainda não foi avaliado com
   pacientes nem médicos.
+- Avaliação do chatbot: fomos nós a classificar, uma resposta por pergunta e um só caso.
+  As boas práticas para avaliar agentes pedem várias respostas por pergunta e dois
+  avaliadores; já o admitimos nas limitações.
 - Escolha do modelo: as configurações preliminares foram escolhidas olhando para o teste
   da primeira divisão. Já o admitimos nas limitações.
 - AL com features congeladas: usámos uma regressão logística sobre features congeladas,
@@ -103,8 +116,10 @@ ORDEM SUGERIDA PARA A APRESENTAÇÃO
 3. Resultado do AL
 4. "Incerteza não é risco"
 5. Papel do humano
-6. Grad-CAM e agente
-7. Limitações
+6. Grad-CAM
+7. Agente e chatbot (regra de encaminhamento, episódio do "Não.", avaliação 19/8/3 ->
+   23/7/0, falsa tranquilização indireta, demo curta)
+8. Limitações e trabalho futuro
 
 História: "o que parecia um ganho era um artefacto, e o que o modelo pergunta ao médico
 importa".

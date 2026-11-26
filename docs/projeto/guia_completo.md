@@ -881,7 +881,8 @@ docs/rag/            documentos médicos para o chatbot, fontes.md, perguntas_te
 - `Retriever`, `build_message`, `answer`, `IAedu.ask`.
 
 **Reprodutibilidade:** código partilhado em `src/`, resultados guardados em JSON, figuras do relatório
-geradas por um script a partir desses JSON, README com instruções, treino determinístico.
+geradas por um script a partir desses JSON, README com instruções (obter o dataset, correr os
+notebooks, gerar as figuras e compilar o relatório), treino determinístico.
 
 ---
 
